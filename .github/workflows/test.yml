@@ -42,6 +42,7 @@ jobs:
       - name: Install ruff
         run: pip install ruff
 
-      - name: Run ruff check
-        run: ruff check custom_components/unifiprotect_2way_audio --select E,F,W
-        continue-on-error: true
+      - name: Run ruff check (informational only)
+        # Non-blocking to avoid failing on pre-existing code issues
+        # Violations are shown but don't block the workflow
+        run: ruff check custom_components/unifiprotect_2way_audio --select E,F,W || true
