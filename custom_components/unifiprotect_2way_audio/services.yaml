@@ -1,0 +1,51 @@
+start_talkback:
+  name: Start Talkback
+  description: Start 2-way audio talkback to a UniFi Protect camera
+  target:
+    entity:
+      domain: media_player
+      integration: unifiprotect_2way_audio
+  fields:
+    audio_data:
+      name: Audio Data
+      description: Base64 encoded audio data to send to the camera
+      required: false
+      example: "SGVsbG8gV29ybGQ="
+      selector:
+        text:
+    sample_rate:
+      name: Sample Rate
+      description: Audio sample rate in Hz
+      required: false
+      default: 16000
+      example: 16000
+      selector:
+        number:
+          min: 8000
+          max: 48000
+    channels:
+      name: Channels
+      description: Number of audio channels
+      required: false
+      default: 1
+      example: 1
+      selector:
+        number:
+          min: 1
+          max: 2
+
+stop_talkback:
+  name: Stop Talkback
+  description: Stop 2-way audio talkback to a UniFi Protect camera
+  target:
+    entity:
+      domain: media_player
+      integration: unifiprotect_2way_audio
+
+toggle_mute:
+  name: Toggle Mute
+  description: Toggle microphone mute state for 2-way audio
+  target:
+    entity:
+      domain: media_player
+      integration: unifiprotect_2way_audio
