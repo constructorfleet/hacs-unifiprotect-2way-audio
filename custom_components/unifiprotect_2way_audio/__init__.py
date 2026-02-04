@@ -21,7 +21,7 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER]
+PLATFORMS: list[Platform] = [Platform.CAMERA, Platform.SELECT]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
