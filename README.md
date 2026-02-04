@@ -3,17 +3,19 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![GitHub Release](https://img.shields.io/github/release/constructorfleet/hacs-unifiprotect-2way-audio.svg)](https://github.com/constructorfleet/hacs-unifiprotect-2way-audio/releases)
 
-A HACS-installable Home Assistant custom component that adds 2-way audio support for UniFi Protect cameras with microphone and speaker capabilities. This integration piggybacks off the official UniFi Protect integration to provide talkback functionality through a custom Lovelace card.
+A HACS-installable Home Assistant custom component that adds 2-way audio support and configurable camera streams for UniFi Protect cameras. This integration creates a unified device for each camera with camera entity, stream configuration selects, and 2-way audio controls.
 
 ## Features
 
+- 📹 **Camera Entities**: Each UniFi Protect camera gets its own camera entity with video streaming
+- 🎛️ **Stream Configuration**: Select entities to configure stream security and resolution
 - 🎤 **2-Way Audio Support**: Talk to your UniFi Protect cameras directly from Home Assistant
 - 🔇 **Mute Control**: Toggle microphone mute state
 - 🎛️ **Push-to-Talk**: Hold button to talk, release to stop
-- 📹 **Camera Overlay**: Controls overlay directly on camera feed
 - 🌐 **Browser Audio**: Uses browser/companion app microphone
 - 📱 **Touch Support**: Works on mobile devices
 - 🏠 **HACS Compatible**: Easy installation through HACS
+- 📦 **Unified Devices**: One device per camera with all related entities grouped together
 
 ## Prerequisites
 
@@ -52,6 +54,28 @@ A HACS-installable Home Assistant custom component that adds 2-way audio support
 3. Search for "UniFi Protect 2-Way Audio"
 4. Click to add the integration
 5. The integration will automatically discover your UniFi Protect cameras
+
+### What Gets Created
+
+For each UniFi Protect camera, the integration creates **one device** with the following entities:
+
+1. **Camera Entity** (`camera.camera_name`)
+   - Displays video stream from the UniFi Protect camera
+   - Stream configuration is controlled by the select entities
+
+2. **Stream Security Select** (`select.camera_name_stream_security`)
+   - Options: "Secure" or "Insecure"
+   - Changes which stream type the camera uses
+
+3. **Stream Resolution Select** (`select.camera_name_stream_resolution`)
+   - Options: "High", "Medium", or "Low"
+   - Changes the resolution of the stream
+
+4. **2-Way Audio Media Player** (`media_player.camera_name_2way_audio`)
+   - Provides talkback functionality
+   - Used by the Lovelace card for push-to-talk
+
+All entities are grouped under a single device for easy management.
 
 ### Lovelace Card Setup
 
