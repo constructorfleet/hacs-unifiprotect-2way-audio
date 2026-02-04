@@ -12,11 +12,10 @@ hacs-unifiprotect-2way-audio/
 │   ├── media_player.py                           # Media player platform (core)
 │   ├── services.yaml                             # Service definitions
 │   ├── strings.json                              # UI translations (modern)
-│   └── translations/
-│       └── en.json                               # Localization files
-│
-├── www/community/unifiprotect-2way-audio-card/  # Lovelace card
-│   └── unifiprotect-2way-audio-card.js          # Custom card implementation
+│   ├── translations/
+│   │   └── en.json                               # Localization files
+│   └── www/                                      # Static files
+│       └── unifiprotect-2way-audio-card.js       # Custom Lovelace card
 │
 ├── docs/examples/                                # Documentation
 │   ├── automations.md                            # Example automations
@@ -42,13 +41,41 @@ Settings → Devices & Services → Add Integration → UniFi Protect 2-Way Audi
 
 ### 3. Entity Creation
 ```
-Integration Setup → Detect UniFi Protect Cameras → Create Media Player Entities
+Integration Setup → Detect UniFi Protect Cameras → Create Unified Device per Camera
+  ├── Camera Entity (video streaming)
+  ├── Stream Security Select (Secure/Insecure)
+  ├── Stream Resolution Select (High/Medium/Low)
+  └── Media Player Entity (2-way audio talkback)
 ```
 
 ### 4. Card Setup
 ```
 Add Resource → Add Card to Dashboard → Configure Entity
 ```
+
+## Entity Architecture
+
+### Device Structure
+Each UniFi Protect camera creates **one device** with **four entities**:
+
+```
+Device: Front Door Camera
+├── camera.front_door (Camera Entity)
+│   └── Streams video from UniFi Protect
+│   └── Stream config controlled by select entities
+├── select.front_door_stream_security (Select Entity)
+│   └── Options: Secure, Insecure
+├── select.front_door_stream_resolution (Select Entity)
+│   └── Options: High, Medium, Low
+└── media_player.front_door_2way_audio (Media Player)
+    └── Talkback functionality for 2-way audio
+```
+
+This unified structure ensures:
+- **No device proliferation**: 1 device per camera instead of multiple
+- **Logical grouping**: All camera-related entities grouped together
+- **Easy management**: Find all controls for a camera in one place
+- **Dynamic configuration**: Change stream settings via select entities
 
 ## Data Flow
 
@@ -76,14 +103,32 @@ Add Resource → Add Card to Dashboard → Configure Entity
 
 ## Key Components
 
-### Media Player Entity (`media_player.py`)
-- **Purpose**: Bridge between Home Assistant and UniFi Protect cameras
+### Camera Entity (`camera.py`)
+- **Purpose**: Proxy camera entity that displays video from UniFi Protect
 - **Features**:
   - Discovers cameras from UniFi Protect integration
-  - Creates media_player entities for each camera
+  - Creates camera entities for each UniFi Protect camera
+  - Proxies video stream from source camera
+  - Stream configuration controlled by select entities
+  - Groups with other entities under unified device
+
+### Select Entities (`select.py`)
+- **Purpose**: Configure camera stream settings dynamically
+- **Features**:
+  - Stream Security select (Secure/Insecure)
+  - Stream Resolution select (High/Medium/Low)
+  - Changes update camera stream in real-time
+  - Visual icons change based on selection
+  - Groups with camera under unified device
+
+### Media Player Entity (`media_player.py`)
+- **Purpose**: Bridge between Home Assistant and UniFi Protect for audio
+- **Features**:
+  - Provides talkback functionality for 2-way audio
   - Handles talkback start/stop
   - Manages mute state
-  - Streams audio to cameras
+  - Streams audio to cameras via uiprotect library
+  - Groups with camera under unified device
 
 ### Lovelace Card (`unifiprotect-2way-audio-card.js`)
 - **Purpose**: User interface for 2-way audio control

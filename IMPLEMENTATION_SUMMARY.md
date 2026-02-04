@@ -41,9 +41,13 @@ All requirements from the original problem statement have been implemented:
 - Async/await architecture
 
 #### 2. Lovelace Custom Card
-**Location:** `www/community/unifiprotect-2way-audio-card/`
+**Location:** `custom_components/unifiprotect_2way_audio/www/`
 
 **File:** `unifiprotect-2way-audio-card.js` (386 lines)
+
+**Automatically Registered:** Yes, via `async_setup` in `__init__.py`
+
+**URL Path:** `/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js`
 
 **Key Features:**
 - Custom HTML element extending HTMLElement

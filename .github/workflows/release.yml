@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'custom_components/unifiprotect_2way_audio/manifest.json'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(python -c "import json; print(json.load(open('custom_components/unifiprotect_2way_audio/manifest.json'))['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create ZIP archive
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          cd custom_components
+          zip -r ../unifiprotect_2way_audio-${{ steps.version.outputs.version }}.zip unifiprotect_2way_audio/
+          cd ..
+
+      - name: Create Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## UniFi Protect 2-Way Audio ${{ steps.version.outputs.version }}
+            
+            ### Installation
+            
+            Install via HACS or download the latest release and extract to your `custom_components` directory.
+            
+            ### Changes
+            
+            See commit history for detailed changes.
+          files: unifiprotect_2way_audio-${{ steps.version.outputs.version }}.zip
+          draft: false
+          prerelease: false

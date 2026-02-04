@@ -11,17 +11,17 @@ from homeassistant.components.media_player import (
     MediaPlayerEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
     async_get_current_platform,
 )
+from homeassistant.helpers.device_registry import DeviceInfo
 import voluptuous as vol
 
 from .const import (
     ATTR_AUDIO_DATA,
-    ATTR_CAMERA_ID,
     ATTR_CHANNELS,
     ATTR_SAMPLE_RATE,
     DEFAULT_CHANNELS,
@@ -45,7 +45,7 @@ async def async_setup_entry(
 
     # Get all UniFi Protect camera entities
     entities = []
-    
+
     # Iterate through all media_player entities to find UniFi Protect cameras
     entity_registry = er.async_get(hass)
     for entity in entity_registry.entities.values():
@@ -66,7 +66,7 @@ async def async_setup_entry(
 
     # Register services
     platform = async_get_current_platform()
-    
+
     platform.async_register_entity_service(
         SERVICE_START_TALKBACK,
         {
@@ -76,13 +76,13 @@ async def async_setup_entry(
         },
         "async_start_talkback",
     )
-    
+
     platform.async_register_entity_service(
         SERVICE_STOP_TALKBACK,
         {},
         "async_stop_talkback",
     )
-    
+
     platform.async_register_entity_service(
         SERVICE_TOGGLE_MUTE,
         {},
@@ -100,11 +100,25 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
         self.hass = hass
         self._camera_entity_id = camera_entity_id
         self._camera_unique_id = camera_unique_id
-        self._attr_name = f"{camera_entity_id.split('.')[-1]} 2-Way Audio"
+
+        # Extract camera name from entity_id
+        camera_name = camera_entity_id.split(".")[-1].replace("_", " ").title()
+
+        self._attr_name = f"{camera_name} 2-Way Audio"
         self._attr_unique_id = f"{camera_unique_id}_2way_audio"
         self._is_muted = False
         self._is_talkback_active = False
         self._talkback_task: asyncio.Task | None = None
+
+    @property
+    def device_info(self):
+        """Return device information to group with camera."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._camera_unique_id)},
+            name=self._attr_name.replace(" 2-Way Audio", ""),
+            manufacturer="Ubiquiti",
+            model="UniFi Protect Camera",
+        )
 
     @property
     def supported_features(self) -> MediaPlayerEntityFeature:
@@ -155,13 +169,13 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
             return
 
         self._is_talkback_active = True
-        
+
         # In a real implementation, this would:
         # 1. Get the UniFi Protect camera object from the unifiprotect integration
         # 2. Use the uiprotect library to start talkback
         # 3. Stream audio data to the camera
         # For now, we'll just log and mark as active
-        
+
         if audio_data:
             try:
                 # Decode base64 audio data
@@ -186,7 +200,7 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
             return
 
         self._is_talkback_active = False
-        
+
         if self._talkback_task and not self._talkback_task.done():
             self._talkback_task.cancel()
             try:
