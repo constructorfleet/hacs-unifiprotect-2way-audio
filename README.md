@@ -55,16 +55,18 @@ A HACS-installable Home Assistant custom component that adds 2-way audio support
 
 ### Lovelace Card Setup
 
-1. Copy the `www/community/unifiprotect-2way-audio-card/unifiprotect-2way-audio-card.js` file to your Home Assistant `www` directory
-2. Add the card resource to your Lovelace dashboard:
-   - Go to **Settings** → **Dashboards**
-   - Click the three dots → **Resources**
-   - Click **+ Add Resource**
-   - URL: `/local/community/unifiprotect-2way-audio-card/unifiprotect-2way-audio-card.js`
-   - Resource type: JavaScript Module
-   - Click **Create**
+The Lovelace card is automatically registered when the integration is set up. The card resource is available at:
+- URL: `/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js`
 
-3. Add the card to your dashboard:
+If you need to manually add it (in case of issues), you can:
+1. Go to **Settings** → **Dashboards**
+2. Click the three dots → **Resources**
+3. Click **+ Add Resource**
+4. URL: `/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js`
+5. Resource type: JavaScript Module
+6. Click **Create**
+
+To add the card to your dashboard:
    ```yaml
    type: custom:unifiprotect-2way-audio-card
    entity: media_player.your_camera_2way_audio

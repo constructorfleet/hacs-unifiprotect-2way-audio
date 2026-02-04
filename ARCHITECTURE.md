@@ -12,11 +12,10 @@ hacs-unifiprotect-2way-audio/
 │   ├── media_player.py                           # Media player platform (core)
 │   ├── services.yaml                             # Service definitions
 │   ├── strings.json                              # UI translations (modern)
-│   └── translations/
-│       └── en.json                               # Localization files
-│
-├── www/community/unifiprotect-2way-audio-card/  # Lovelace card
-│   └── unifiprotect-2way-audio-card.js          # Custom card implementation
+│   ├── translations/
+│   │   └── en.json                               # Localization files
+│   └── www/                                      # Static files
+│       └── unifiprotect-2way-audio-card.js       # Custom Lovelace card
 │
 ├── docs/examples/                                # Documentation
 │   ├── automations.md                            # Example automations
