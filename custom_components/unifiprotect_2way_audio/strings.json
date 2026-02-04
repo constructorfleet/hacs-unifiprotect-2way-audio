@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up UniFi Protect 2-Way Audio",
+        "description": "This integration adds 2-way audio support to UniFi Protect cameras. It requires the UniFi Protect integration to be already configured."
+      }
+    },
+    "abort": {
+      "already_configured": "UniFi Protect 2-Way Audio is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UniFi Protect 2-Way Audio Options",
+        "description": "Configure options for UniFi Protect 2-Way Audio"
+      }
+    }
+  }
+}
