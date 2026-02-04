@@ -70,16 +70,6 @@ class UniFiProtectProxyCamera(Camera):
         self._stream_security = "Secure"
         self._stream_resolution = "High"
 
-    async def async_added_to_hass(self) -> None:
-        """Register with manager when added to hass."""
-        await super().async_added_to_hass()
-        self._manager.register_camera(self._source_unique_id, self)
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Cleanup when removed from hass."""
-        self._manager.unregister_camera(self._source_unique_id)
-        await super().async_will_remove_from_hass()
-
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
