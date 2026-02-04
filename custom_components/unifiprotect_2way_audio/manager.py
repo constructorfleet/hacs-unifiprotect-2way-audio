@@ -52,7 +52,7 @@ class StreamConfigManager:
         from .camera import UniFiProtectProxyCamera
         from .media_player import UniFiProtect2WayAudioPlayer
         from .select import UniFiProtectStreamResolutionSelect, UniFiProtectStreamSecuritySelect
-        
+
         entity_registry = er.async_get(hass)
         device_registry = dr.async_get(hass)
         unifi_cameras = [
@@ -77,12 +77,12 @@ class StreamConfigManager:
             if not unifi_device:
                 _LOGGER.warning("Device %s not found in registry", device_id)
                 continue
-                
+
             # Use the existing UniFi device identifiers so entities group together
             device_info = DeviceInfo(
                 identifiers=unifi_device.identifiers,
             )
-            
+
             # Create camera entity
             camera = UniFiProtectProxyCamera(
                 self._hass,
@@ -92,19 +92,19 @@ class StreamConfigManager:
                 device_info,
                 self
             )
-            
+
             # Create media player entity
             media_player = UniFiProtect2WayAudioPlayer(
-                self._hass, 
+                self._hass,
                 cameras[0].entity_id,
                 cameras[0].unique_id,
                 device_info,
             )
-            
+
             # Get available options from UniFi Protect camera
             security_options = self._get_available_security_options(hass, cameras[0])
             resolution_options = self._get_available_resolution_options(hass, cameras[0])
-            
+
             # Create security select if there are multiple options
             security_select = None
             if len(security_options) > 1:
@@ -122,7 +122,7 @@ class StreamConfigManager:
                     cameras[0].entity_id,
                     security_options,
                 )
-            
+
             # Create resolution select if there are multiple options
             resolution_select = None
             if len(resolution_options) > 1:
@@ -140,7 +140,7 @@ class StreamConfigManager:
                     cameras[0].entity_id,
                     resolution_options,
                 )
-            
+
             # Store the device
             self._devices[cameras[0].unique_id] = Unifi2WayAudioDevice(
                 camera,
@@ -155,7 +155,7 @@ class StreamConfigManager:
 
     def _get_available_security_options(self, hass: HomeAssistant, camera_entity) -> list[str]:
         """Get available security options for a camera from UniFi Protect.
-        
+
         For now, we return both secure and insecure as most cameras support both.
         In the future, this could query the actual camera capabilities.
         """
@@ -167,7 +167,7 @@ class StreamConfigManager:
                 if hasattr(entry_data, "api"):
                     unifi_entry_id = entry_id
                     break
-            
+
             if unifi_entry_id:
                 coordinator = hass.data["unifiprotect"][unifi_entry_id]
                 # Look up camera by mac address from connections or other identifier
@@ -175,13 +175,13 @@ class StreamConfigManager:
                 return ["Secure", "Insecure"]
         except Exception as err:
             _LOGGER.debug("Could not get security options from UniFi Protect: %s", err)
-        
+
         # Default to both options
         return ["Secure", "Insecure"]
 
     def _get_available_resolution_options(self, hass: HomeAssistant, camera_entity) -> list[str]:
         """Get available resolution options for a camera from UniFi Protect.
-        
+
         Queries the camera's channels from UniFi Protect to get actual available resolutions.
         """
         # Try to get the camera object from UniFi Protect integration
@@ -192,10 +192,10 @@ class StreamConfigManager:
                 if hasattr(entry_data, "api"):
                     unifi_entry_id = entry_id
                     break
-            
+
             if unifi_entry_id:
                 coordinator = hass.data["unifiprotect"][unifi_entry_id]
-                
+
                 # Try to get camera from coordinator
                 if hasattr(coordinator, "data") and hasattr(coordinator.data, "cameras"):
                     # Find the camera by matching the entity_id or unique_id
@@ -210,7 +210,7 @@ class StreamConfigManager:
                                     if hasattr(channel, "name") and channel.name:
                                         # Channel names are typically like "High", "Medium", "Low"
                                         channel_names.append(channel.name)
-                                
+
                                 if channel_names:
                                     _LOGGER.debug(
                                         "Found %d channels for camera %s: %s",
@@ -221,7 +221,7 @@ class StreamConfigManager:
                                     return channel_names
         except Exception as err:
             _LOGGER.debug("Could not get resolution options from UniFi Protect: %s", err)
-        
+
         # Default to standard options
         return ["High", "Medium", "Low"]
 
