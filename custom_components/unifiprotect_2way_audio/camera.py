@@ -21,42 +21,25 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-# async def async_setup_entry(
-#     hass: HomeAssistant,
-#     config_entry: ConfigEntry,
-#     async_add_entities: AddEntitiesCallback,
-# ) -> None:
-#     """Set up UniFi Protect camera entities."""
-#     _LOGGER.info("Setting up UniFi Protect 2-Way Audio camera platform")
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up UniFi Protect camera entities."""
+    _LOGGER.info("Setting up UniFi Protect 2-Way Audio camera platform")
 
-#     # Get the manager from hass.data
-#     manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
+    # Get the manager from hass.data
+    manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
 
-#     entities = []
-#     entity_registry = er.async_get(hass)
+    # Get entities from manager
+    entities = [device.camera for device in manager.get_devices()]
 
-#     # Find all UniFi Protect camera entities
-#     unifi_entities = [
-#         UniFiProtectProxyCamera(
-#             hass,
-#             entity.entity_id,
-#             entity.unique_id,
-#             entity.original_name or "Camera",
-#             manager,
-#         )
-#         for entity
-#         in entity_registry.entities.values()
-#         if entity.platform == "unifiprotect" \
-#             and entity.domain == "camera" \
-#             and not entity.disabled \
-#             and not entity.hidden
-#     ]
-
-#     if entities:
-#         async_add_entities(entities)
-#         _LOGGER.info("Added %d UniFi Protect camera entities", len(entities))
-#     else:
-#         _LOGGER.warning("No UniFi Protect camera entities found")
+    if entities:
+        async_add_entities(entities)
+        _LOGGER.info("Added %d UniFi Protect camera entities", len(entities))
+    else:
+        _LOGGER.warning("No UniFi Protect camera entities found")
 
 
 class UniFiProtectProxyCamera(Camera):
@@ -68,7 +51,7 @@ class UniFiProtectProxyCamera(Camera):
         source_camera_id: str,
         source_unique_id: str,
         camera_name: str,
-        device_info: DeviceInfo
+        device_info: DeviceInfo,
         manager,
     ) -> None:
         """Initialize the camera."""
@@ -86,27 +69,6 @@ class UniFiProtectProxyCamera(Camera):
         # Default stream settings
         self._stream_security = "Secure"
         self._stream_resolution = "High"
-
-    async def async_added_to_hass(self) -> None:
-        """Register with manager when added to hass."""
-        await super().async_added_to_hass()
-        self._manager.register_camera(self._source_unique_id, self)
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Cleanup when removed from hass."""
-        self._manager.unregister_camera(self._source_unique_id)
-        await super().async_will_remove_from_hass()
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information about this camera."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._source_unique_id)},
-            name=self._camera_name,
-            manufacturer="Ubiquiti",
-            model="UniFi Protect Camera",
-            via_device=None,
-        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

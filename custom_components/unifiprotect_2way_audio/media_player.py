@@ -42,28 +42,19 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up UniFi Protect 2-Way Audio media player."""
-    # _LOGGER.info("Setting up UniFi Protect 2-Way Audio media player platform")
+    _LOGGER.info("Setting up UniFi Protect 2-Way Audio media player platform")
 
-    # # Get all UniFi Protect camera entities
-    # entities = []
+    # Get the manager from hass.data
+    manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
 
-    # # Iterate through all media_player entities to find UniFi Protect cameras
-    # entity_registry = er.async_get(hass)
-    # for entity in entity_registry.entities.values():
-    #     # Check if it's a UniFi Protect camera entity
-    #     if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
-    #         # Create a 2-way audio entity for this camera
-    #         camera_entity = UniFiProtect2WayAudioPlayer(
-    #             hass, entity.entity_id, entity.unique_id
-    #         )
-    #         entities.append(camera_entity)
-    #         _LOGGER.debug("Created 2-way audio entity for camera: %s", entity.entity_id)
+    # Get entities from manager
+    entities = [device.media_player for device in manager.get_devices()]
 
-    # if entities:
-    #     async_add_entities(entities)
-    #     _LOGGER.info("Added %d UniFi Protect 2-Way Audio entities", len(entities))
-    # else:
-    #     _LOGGER.warning("No UniFi Protect camera entities found")
+    if entities:
+        async_add_entities(entities)
+        _LOGGER.info("Added %d UniFi Protect 2-Way Audio entities", len(entities))
+    else:
+        _LOGGER.warning("No UniFi Protect 2-Way Audio entities found")
 
     # Register services
     platform = async_get_current_platform()
