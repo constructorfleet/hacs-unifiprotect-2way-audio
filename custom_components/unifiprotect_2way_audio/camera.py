@@ -4,7 +4,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.components.camera import Camera, CameraEntityFeature
+from homeassistant.components.camera import (
+    Camera,
+    CameraEntityFeature,
+    async_get_image,
+    async_get_stream_source,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
@@ -70,6 +75,32 @@ class UniFiProtectProxyCamera(Camera):
         self._stream_security = "Secure"
         self._stream_resolution = "High"
 
+        # Register event listener for stream config changes
+        self._remove_listener = None
+
+    async def async_added_to_hass(self) -> None:
+        """Register event listener when added to hass."""
+        await super().async_added_to_hass()
+
+        @callback
+        def handle_stream_config_change(event):
+            """Handle stream configuration change events."""
+            if event.data.get("camera_unique_id") == self._source_unique_id:
+                security = event.data.get("security")
+                resolution = event.data.get("resolution")
+                self.update_stream_settings(security, resolution)
+
+        self._remove_listener = self.hass.bus.async_listen(
+            f"{DOMAIN}_stream_config_changed",
+            handle_stream_config_change,
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Cleanup when removed from hass."""
+        if self._remove_listener:
+            self._remove_listener()
+        await super().async_will_remove_from_hass()
+
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information about this camera."""
@@ -102,12 +133,10 @@ class UniFiProtectProxyCamera(Camera):
 
         # Try to get camera component
         try:
-            from homeassistant.components.camera import async_get_image
-
             return await async_get_image(
                 self.hass, self._source_camera_id, width, height
             )
-        except Exception as err:
+        except (ImportError, ValueError, AttributeError) as err:
             _LOGGER.error("Failed to get camera image: %s", err)
             return None
 
@@ -121,8 +150,6 @@ class UniFiProtectProxyCamera(Camera):
 
         # Get entity_id from the source camera attributes
         try:
-            from homeassistant.components.camera import async_get_stream_source
-
             stream_url = await async_get_stream_source(
                 self.hass, self._source_camera_id
             )
@@ -136,7 +163,7 @@ class UniFiProtectProxyCamera(Camera):
                     stream_url,
                 )
             return stream_url
-        except Exception as err:
+        except (ImportError, ValueError, AttributeError) as err:
             _LOGGER.error("Failed to get stream source: %s", err)
             return None
 

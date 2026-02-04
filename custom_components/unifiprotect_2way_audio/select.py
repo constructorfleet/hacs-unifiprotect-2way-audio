@@ -102,32 +102,20 @@ class UniFiProtectStreamSecuritySelect(SelectEntity):
         )
         self.async_write_ha_state()
 
-        # Notify the camera entity to update its stream
-        await self._notify_camera_update(security=option)
+        # Fire an event that the camera can listen to
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_stream_config_changed",
+            {
+                "camera_unique_id": self._source_unique_id,
+                "security": option,
+            },
+        )
 
     async def _notify_camera_update(self, security: str) -> None:
         """Notify the camera entity about the change."""
-        # Find the camera entity and update it
-        entity_registry = er.async_get(self.hass)
-        camera_entity_id = None
-
-        for entity in entity_registry.entities.values():
-            if (
-                entity.platform == DOMAIN
-                and entity.domain == "camera"
-                and entity.unique_id == f"{self._source_unique_id}_proxy"
-            ):
-                camera_entity_id = entity.entity_id
-                break
-
-        if camera_entity_id:
-            # Get the camera entity and call its update method
-            camera_entity = self.hass.data.get("entity_components", {}).get("camera")
-            if camera_entity:
-                for entity in camera_entity.entities:
-                    if entity.entity_id == camera_entity_id:
-                        entity.update_stream_settings(security=security)
-                        break
+        # Deprecated method - kept for compatibility
+        # Now using event bus instead
+        pass
 
 
 class UniFiProtectStreamResolutionSelect(SelectEntity):
@@ -178,29 +166,17 @@ class UniFiProtectStreamResolutionSelect(SelectEntity):
         )
         self.async_write_ha_state()
 
-        # Notify the camera entity to update its stream
-        await self._notify_camera_update(resolution=option)
+        # Fire an event that the camera can listen to
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_stream_config_changed",
+            {
+                "camera_unique_id": self._source_unique_id,
+                "resolution": option,
+            },
+        )
 
     async def _notify_camera_update(self, resolution: str) -> None:
         """Notify the camera entity about the change."""
-        # Find the camera entity and update it
-        entity_registry = er.async_get(self.hass)
-        camera_entity_id = None
-
-        for entity in entity_registry.entities.values():
-            if (
-                entity.platform == DOMAIN
-                and entity.domain == "camera"
-                and entity.unique_id == f"{self._source_unique_id}_proxy"
-            ):
-                camera_entity_id = entity.entity_id
-                break
-
-        if camera_entity_id:
-            # Get the camera entity and call its update method
-            camera_entity = self.hass.data.get("entity_components", {}).get("camera")
-            if camera_entity:
-                for entity in camera_entity.entities:
-                    if entity.entity_id == camera_entity_id:
-                        entity.update_stream_settings(resolution=resolution)
-                        break
+        # Deprecated method - kept for compatibility
+        # Now using event bus instead
+        pass

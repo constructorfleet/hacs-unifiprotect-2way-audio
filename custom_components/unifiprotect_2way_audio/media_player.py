@@ -17,6 +17,7 @@ from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
     async_get_current_platform,
 )
+from homeassistant.helpers.device_registry import DeviceInfo
 import voluptuous as vol
 
 from .const import (
@@ -25,6 +26,7 @@ from .const import (
     ATTR_SAMPLE_RATE,
     DEFAULT_CHANNELS,
     DEFAULT_SAMPLE_RATE,
+    DOMAIN,
     SERVICE_START_TALKBACK,
     SERVICE_STOP_TALKBACK,
     SERVICE_TOGGLE_MUTE,
@@ -111,10 +113,6 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
     @property
     def device_info(self):
         """Return device information to group with camera."""
-        from homeassistant.helpers.device_registry import DeviceInfo
-
-        from .const import DOMAIN
-
         return DeviceInfo(
             identifiers={(DOMAIN, self._camera_unique_id)},
             name=self._attr_name.replace(" 2-Way Audio", ""),
