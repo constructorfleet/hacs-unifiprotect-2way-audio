@@ -111,12 +111,6 @@ class UniFiProtectStreamSecuritySelect(SelectEntity):
             },
         )
 
-    async def _notify_camera_update(self, security: str) -> None:
-        """Notify the camera entity about the change."""
-        # Deprecated method - kept for compatibility
-        # Now using event bus instead
-        pass
-
 
 class UniFiProtectStreamResolutionSelect(SelectEntity):
     """Select entity for stream resolution configuration."""
@@ -174,9 +168,3 @@ class UniFiProtectStreamResolutionSelect(SelectEntity):
                 "resolution": option,
             },
         )
-
-    async def _notify_camera_update(self, resolution: str) -> None:
-        """Notify the camera entity about the change."""
-        # Deprecated method - kept for compatibility
-        # Now using event bus instead
-        pass
