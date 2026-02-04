@@ -21,38 +21,42 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up UniFi Protect camera entities."""
-    _LOGGER.info("Setting up UniFi Protect 2-Way Audio camera platform")
+# async def async_setup_entry(
+#     hass: HomeAssistant,
+#     config_entry: ConfigEntry,
+#     async_add_entities: AddEntitiesCallback,
+# ) -> None:
+#     """Set up UniFi Protect camera entities."""
+#     _LOGGER.info("Setting up UniFi Protect 2-Way Audio camera platform")
 
-    # Get the manager from hass.data
-    manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
+#     # Get the manager from hass.data
+#     manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
 
-    entities = []
-    entity_registry = er.async_get(hass)
+#     entities = []
+#     entity_registry = er.async_get(hass)
 
-    # Find all UniFi Protect camera entities
-    for entity in entity_registry.entities.values():
-        if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
-            camera_entity = UniFiProtectProxyCamera(
-                hass,
-                entity.entity_id,
-                entity.unique_id,
-                entity.original_name or "Camera",
-                manager,
-            )
-            entities.append(camera_entity)
-            _LOGGER.debug("Created camera entity for: %s", entity.entity_id)
+#     # Find all UniFi Protect camera entities
+#     unifi_entities = [
+#         UniFiProtectProxyCamera(
+#             hass,
+#             entity.entity_id,
+#             entity.unique_id,
+#             entity.original_name or "Camera",
+#             manager,
+#         )
+#         for entity
+#         in entity_registry.entities.values()
+#         if entity.platform == "unifiprotect" \
+#             and entity.domain == "camera" \
+#             and not entity.disabled \
+#             and not entity.hidden
+#     ]
 
-    if entities:
-        async_add_entities(entities)
-        _LOGGER.info("Added %d UniFi Protect camera entities", len(entities))
-    else:
-        _LOGGER.warning("No UniFi Protect camera entities found")
+#     if entities:
+#         async_add_entities(entities)
+#         _LOGGER.info("Added %d UniFi Protect camera entities", len(entities))
+#     else:
+#         _LOGGER.warning("No UniFi Protect camera entities found")
 
 
 class UniFiProtectProxyCamera(Camera):
@@ -64,6 +68,7 @@ class UniFiProtectProxyCamera(Camera):
         source_camera_id: str,
         source_unique_id: str,
         camera_name: str,
+        device_info: DeviceInfo
         manager,
     ) -> None:
         """Initialize the camera."""
@@ -76,6 +81,7 @@ class UniFiProtectProxyCamera(Camera):
         self._attr_unique_id = f"{source_unique_id}_proxy"
         self._attr_supported_features = CameraEntityFeature.STREAM
         self._manager = manager
+        self._attr_device_info = device_info
 
         # Default stream settings
         self._stream_security = "Secure"
