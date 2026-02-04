@@ -26,67 +26,13 @@ async def async_setup_entry(
     # Get the manager from hass.data
     manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
 
+    # Get select entities from manager
     entities = []
-    entity_registry = er.async_get(hass)
-
-    # Find all UniFi Protect camera entities
-    for entity in entity_registry.entities.values():
-        if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
-            camera_name = entity.original_name or "Camera"
-
-            # Get available options from the manager
-            security_options = manager.get_available_security_options(
-                entity.unique_id
-            )
-            resolution_options = manager.get_available_resolution_options(
-                entity.unique_id
-            )
-
-            # Only create security select if there are multiple options
-            if len(security_options) > 1:
-                security_select = UniFiProtectStreamSecuritySelect(
-                    hass,
-                    entity.entity_id,
-                    entity.unique_id,
-                    camera_name,
-                    manager,
-                    security_options,
-                )
-                entities.append(security_select)
-                _LOGGER.debug(
-                    "Created security select for camera: %s with options: %s",
-                    entity.entity_id,
-                    security_options,
-                )
-            else:
-                _LOGGER.debug(
-                    "Skipped security select for camera: %s (only one option: %s)",
-                    entity.entity_id,
-                    security_options,
-                )
-
-            # Only create resolution select if there are multiple options
-            if len(resolution_options) > 1:
-                resolution_select = UniFiProtectStreamResolutionSelect(
-                    hass,
-                    entity.entity_id,
-                    entity.unique_id,
-                    camera_name,
-                    manager,
-                    resolution_options,
-                )
-                entities.append(resolution_select)
-                _LOGGER.debug(
-                    "Created resolution select for camera: %s with options: %s",
-                    entity.entity_id,
-                    resolution_options,
-                )
-            else:
-                _LOGGER.debug(
-                    "Skipped resolution select for camera: %s (only one option: %s)",
-                    entity.entity_id,
-                    resolution_options,
-                )
+    for device in manager.get_devices():
+        if device.security_select is not None:
+            entities.append(device.security_select)
+        if device.resolution_select is not None:
+            entities.append(device.resolution_select)
 
     if entities:
         async_add_entities(entities)
@@ -104,6 +50,7 @@ class UniFiProtectStreamSecuritySelect(SelectEntity):
         source_camera_id: str,
         source_unique_id: str,
         camera_name: str,
+        device_info: DeviceInfo,
         manager,
         options: list[str],
     ) -> None:
@@ -112,21 +59,12 @@ class UniFiProtectStreamSecuritySelect(SelectEntity):
         self._source_camera_id = source_camera_id
         self._source_unique_id = source_unique_id
         self._camera_name = camera_name
+        self._attr_device_info = device_info
         self._manager = manager
         self._attr_name = f"{camera_name} Stream Security"
         self._attr_unique_id = f"{source_unique_id}_stream_security"
         self._attr_options = options
         self._attr_current_option = options[0]
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._source_unique_id)},
-            name=self._camera_name,
-            manufacturer="Ubiquiti",
-            model="UniFi Protect Camera",
-        )
 
     @property
     def icon(self) -> str:
@@ -156,6 +94,7 @@ class UniFiProtectStreamResolutionSelect(SelectEntity):
         source_camera_id: str,
         source_unique_id: str,
         camera_name: str,
+        device_info: DeviceInfo,
         manager,
         options: list[str],
     ) -> None:
@@ -164,21 +103,12 @@ class UniFiProtectStreamResolutionSelect(SelectEntity):
         self._source_camera_id = source_camera_id
         self._source_unique_id = source_unique_id
         self._camera_name = camera_name
+        self._attr_device_info = device_info
         self._manager = manager
         self._attr_name = f"{camera_name} Stream Resolution"
         self._attr_unique_id = f"{source_unique_id}_stream_resolution"
         self._attr_options = options
         self._attr_current_option = options[0]
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._source_unique_id)},
-            name=self._camera_name,
-            manufacturer="Ubiquiti",
-            model="UniFi Protect Camera",
-        )
 
     @property
     def icon(self) -> str:

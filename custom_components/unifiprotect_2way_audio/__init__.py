@@ -23,6 +23,9 @@ _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+# Platforms to setup
+PLATFORMS = [Platform.CAMERA, Platform.MEDIA_PLAYER, Platform.SELECT]
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the UniFi Protect 2-Way Audio component."""
@@ -69,10 +72,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Create and store the stream config manager
     hass.data.setdefault(DOMAIN, {})
-    manager = StreamConfigManager()
+    manager = StreamConfigManager(hass)
     hass.data[DOMAIN][entry.entry_id] = {"manager": manager}
 
-    manager.build_entities()
+    # Build entities - this will be called by each platform setup
+    manager.build_entities(hass)
+
+    # Forward entry setup to platforms
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 

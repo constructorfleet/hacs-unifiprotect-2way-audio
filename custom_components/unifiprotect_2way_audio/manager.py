@@ -8,19 +8,18 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
-from homeassistant.components.select import SelectEntity
 from homeassistant.helpers import entity_registry as er, device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.entity_registry import RegistryEntry as er
 
 if TYPE_CHECKING:
     from .camera import UniFiProtectProxyCamera
     from .media_player import UniFiProtect2WayAudioPlayer
-    from .select import UniFiProtectStreamResolutionSelect UniFiProtectStreamSecuritySelect
+    from .select import UniFiProtectStreamResolutionSelect, UniFiProtectStreamSecuritySelect
 
 
 _LOGGER = logging.getLogger(__name__)
+
+from .const import DOMAIN
 
 
 class Unifi2WayAudioDevice:
@@ -30,8 +29,8 @@ class Unifi2WayAudioDevice:
         self,
         camera: UniFiProtectProxyCamera,
         media_player: UniFiProtect2WayAudioPlayer,
-        security_select: UniFiProtectStreamSecuritySelect,
-        resolution_select: UniFiProtectStreamResolutionSelect,
+        security_select: UniFiProtectStreamSecuritySelect | None,
+        resolution_select: UniFiProtectStreamResolutionSelect | None,
     ) -> None:
         """Initialize the 2-way audio device."""
         self.camera = camera
@@ -45,14 +44,13 @@ class StreamConfigManager:
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the manager."""
-        self._devices: dict[str: Unifi2WayAudioDevice] = {}
-        self._unifi_cameras: dict[str, list[RegistryEntry]] = {}
+        self._devices: dict[str, Unifi2WayAudioDevice] = {}
         self._hass = hass
 
-    def build_entities(self) -> list[Entity]:
+    def build_entities(self, hass: HomeAssistant) -> None:
         """Build entities from unifiprotect integration."""
-        entity_registry = er.async_get()
-        device_registry = dr.async_get()
+        entity_registry = er.async_get(hass)
+        device_registry = dr.async_get(hass)
         unifi_cameras = [
             entity
             for entity
@@ -96,9 +94,8 @@ class StreamConfigManager:
                 cameras[0].entity_id,
                 cameras[0].unique_id,
                 device_info,
-                self
             )
-            self._devices = Unifi2WayAudioDevice(
+            self._devices[cameras[0].unique_id] = Unifi2WayAudioDevice(
                 camera,
                 media_player,
                 None,
@@ -111,9 +108,9 @@ class StreamConfigManager:
 
     def update_stream_security(self, unique_id: str, security: str) -> None:
         """Update stream security for a camera."""
-        camera = self._cameras.get(unique_id)
-        if camera:
-            camera.update_stream_settings(security=security)
+        device = self._devices.get(unique_id)
+        if device and device.camera:
+            device.camera.update_stream_settings(security=security)
             _LOGGER.debug(
                 "Updated security to %s for camera %s", security, unique_id
             )
@@ -124,9 +121,9 @@ class StreamConfigManager:
 
     def update_stream_resolution(self, unique_id: str, resolution: str) -> None:
         """Update stream resolution for a camera."""
-        camera = self._cameras.get(unique_id)
-        if camera:
-            camera.update_stream_settings(resolution=resolution)
+        device = self._devices.get(unique_id)
+        if device and device.camera:
+            device.camera.update_stream_settings(resolution=resolution)
             _LOGGER.debug(
                 "Updated resolution to %s for camera %s", resolution, unique_id
             )
@@ -134,21 +131,3 @@ class StreamConfigManager:
             _LOGGER.warning(
                 "Camera with unique_id %s not found in manager", unique_id
             )
-
-    def get_available_security_options(self, unique_id: str) -> list[str]:
-        """Get available security options for a camera.
-
-        For now, returns all options. In the future, this should query
-        the UniFi Protect API to determine actual available options.
-        """
-        # TODO: Query UniFi Protect API for actual available options
-        return ["Secure", "Insecure"]
-
-    def get_available_resolution_options(self, unique_id: str) -> list[str]:
-        """Get available resolution options for a camera.
-
-        For now, returns all options. In the future, this should query
-        the UniFi Protect API to determine actual available options.
-        """
-        # TODO: Query UniFi Protect API for actual available options
-        return ["High", "Medium", "Low"]
