@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -20,9 +19,6 @@ except ImportError:
 
 from .const import DOMAIN
 
-if TYPE_CHECKING:
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER]
@@ -33,7 +29,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the UniFi Protect 2-Way Audio component."""
     _LOGGER.info("Setting up UniFi Protect 2-Way Audio integration")
-    
+
     # Register static path for the Lovelace card
     if utils:
         try:
@@ -49,26 +45,31 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             with open(manifest_path, encoding="utf-8") as f:
                 manifest = json.load(f)
                 version = manifest.get("version", "1.0.0")
-            
+
             # Add card to resources
             await utils.init_resource(
                 hass,
                 "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
                 str(version)
             )
-            _LOGGER.info("Registered UniFi Protect 2-Way Audio card resources (version %s)", version)
+            _LOGGER.info(
+                "Registered UniFi Protect 2-Way Audio card resources (v%s)",
+                version,
+            )
         except Exception as err:
             _LOGGER.warning("Failed to register card resources: %s", err)
     else:
-        _LOGGER.warning("Lovelace utils not available, card resource registration skipped")
-    
+        _LOGGER.warning(
+            "Lovelace utils not available, card resource registration skipped"
+        )
+
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up UniFi Protect 2-Way Audio from a config entry."""
     _LOGGER.info("Setting up UniFi Protect 2-Way Audio entry: %s", entry.entry_id)
-    
+
     # Store entry data
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {}
@@ -82,7 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.info("Unloading UniFi Protect 2-Way Audio entry: %s", entry.entry_id)
-    
+
     # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
