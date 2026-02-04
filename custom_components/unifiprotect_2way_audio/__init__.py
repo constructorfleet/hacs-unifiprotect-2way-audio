@@ -1,6 +1,7 @@
 """The UniFi Protect 2-Way Audio integration."""
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -44,9 +45,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             )
 
             # Read version from manifest.json
-            import json
             manifest_path = Path(__file__).parent / "manifest.json"
-            with open(manifest_path) as f:
+            with open(manifest_path, encoding="utf-8") as f:
                 manifest = json.load(f)
                 version = manifest.get("version", "1.0.0")
             
