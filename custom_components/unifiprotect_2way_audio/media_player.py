@@ -12,6 +12,7 @@ from homeassistant.components.media_player import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
     async_get_current_platform,
@@ -46,7 +47,7 @@ async def async_setup_entry(
     entities = []
     
     # Iterate through all media_player entities to find UniFi Protect cameras
-    entity_registry = hass.helpers.entity_registry.async_get(hass)
+    entity_registry = er.async_get(hass)
     for entity in entity_registry.entities.values():
         # Check if it's a UniFi Protect camera entity
         if entity.platform == "unifiprotect" and "camera" in entity.entity_id:

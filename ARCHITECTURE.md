@@ -131,7 +131,7 @@ Add Resource → Add Card to Dashboard → Configure Entity
 ### With UniFi Protect Integration
 ```python
 # The integration discovers UniFi Protect cameras
-entity_registry = hass.helpers.entity_registry.async_get(hass)
+entity_registry = er.async_get(hass)
 for entity in entity_registry.entities.values():
     if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
         # Create 2-way audio entity for this camera
