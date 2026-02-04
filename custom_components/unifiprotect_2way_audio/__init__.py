@@ -1,7 +1,6 @@
 """The UniFi Protect 2-Way Audio integration."""
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
@@ -18,6 +17,7 @@ except ImportError:
     utils = None
 
 from .const import DOMAIN
+from .manager import StreamConfigManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,11 +40,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 str(path / "unifiprotect-2way-audio-card.js")
             )
 
-            # Read version from manifest.json
-            manifest_path = Path(__file__).parent / "manifest.json"
-            with open(manifest_path, encoding="utf-8") as f:
-                manifest = json.load(f)
-                version = manifest.get("version", "1.0.0")
+            # Get version from integration metadata
+            version = getattr(
+                hass.data.get("integrations", {}).get(DOMAIN), "version", "1.0.0"
+            )
 
             # Add card to resources
             await utils.init_resource(
@@ -70,9 +69,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up UniFi Protect 2-Way Audio from a config entry."""
     _LOGGER.info("Setting up UniFi Protect 2-Way Audio entry: %s", entry.entry_id)
 
-    # Store entry data
+    # Create and store the stream config manager
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {}
+    manager = StreamConfigManager()
+    hass.data[DOMAIN][entry.entry_id] = {"manager": manager}
 
     # Forward entry setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
