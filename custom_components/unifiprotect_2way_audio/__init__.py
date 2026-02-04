@@ -43,14 +43,20 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 str(path / "unifiprotect-2way-audio-card.js")
             )
 
+            # Read version from manifest.json
+            import json
+            manifest_path = Path(__file__).parent / "manifest.json"
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+                version = manifest.get("version", "1.0.0")
+            
             # Add card to resources
-            version = getattr(hass.data.get("integrations", {}).get(DOMAIN), "version", "1.0.0")
             await utils.init_resource(
                 hass,
                 "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
                 str(version)
             )
-            _LOGGER.info("Registered UniFi Protect 2-Way Audio card resources")
+            _LOGGER.info("Registered UniFi Protect 2-Way Audio card resources (version %s)", version)
         except Exception as err:
             _LOGGER.warning("Failed to register card resources: %s", err)
     else:
