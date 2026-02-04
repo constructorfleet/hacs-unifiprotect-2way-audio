@@ -10,6 +10,7 @@ from homeassistant.components.media_player import (
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
 )
+from homeassistant.components.unifiprotect.const import DEFAULT_BRAND
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -17,7 +18,7 @@ from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
     async_get_current_platform,
 )
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntry, DeviceInfo
 import voluptuous as vol
 
 from .const import (
@@ -43,26 +44,17 @@ async def async_setup_entry(
     """Set up UniFi Protect 2-Way Audio media player."""
     _LOGGER.info("Setting up UniFi Protect 2-Way Audio media player platform")
 
-    # Get all UniFi Protect camera entities
-    entities = []
+    # Get the manager from hass.data
+    manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
 
-    # Iterate through all media_player entities to find UniFi Protect cameras
-    entity_registry = er.async_get(hass)
-    for entity in entity_registry.entities.values():
-        # Check if it's a UniFi Protect camera entity
-        if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
-            # Create a 2-way audio entity for this camera
-            camera_entity = UniFiProtect2WayAudioPlayer(
-                hass, entity.entity_id, entity.unique_id
-            )
-            entities.append(camera_entity)
-            _LOGGER.debug("Created 2-way audio entity for camera: %s", entity.entity_id)
+    # Get entities from manager
+    entities = [device.media_player for device in manager.get_devices()]
 
     if entities:
         async_add_entities(entities)
         _LOGGER.info("Added %d UniFi Protect 2-Way Audio entities", len(entities))
     else:
-        _LOGGER.warning("No UniFi Protect camera entities found")
+        _LOGGER.warning("No UniFi Protect 2-Way Audio entities found")
 
     # Register services
     platform = async_get_current_platform()
@@ -94,12 +86,16 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
     """Representation of a UniFi Protect 2-Way Audio media player."""
 
     def __init__(
-        self, hass: HomeAssistant, camera_entity_id: str, camera_unique_id: str
+        self, hass: HomeAssistant,
+        camera_entity_id: str,
+        camera_unique_id: str,
+        device_info: DeviceInfo,
     ) -> None:
         """Initialize the media player."""
         self.hass = hass
         self._camera_entity_id = camera_entity_id
         self._camera_unique_id = camera_unique_id
+        self._attr_device_info = device_info
 
         # Extract camera name from entity_id
         camera_name = camera_entity_id.split(".")[-1].replace("_", " ").title()
@@ -109,16 +105,6 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
         self._is_muted = False
         self._is_talkback_active = False
         self._talkback_task: asyncio.Task | None = None
-
-    @property
-    def device_info(self):
-        """Return device information to group with camera."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._camera_unique_id)},
-            name=self._attr_name.replace(" 2-Way Audio", ""),
-            manufacturer="Ubiquiti",
-            model="UniFi Protect Camera",
-        )
 
     @property
     def supported_features(self) -> MediaPlayerEntityFeature:

@@ -21,9 +21,10 @@ from .manager import StreamConfigManager
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.CAMERA, Platform.SELECT, Platform.MEDIA_PLAYER]
-
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+# Platforms to setup
+PLATFORMS = [Platform.CAMERA, Platform.MEDIA_PLAYER, Platform.SELECT]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -71,8 +72,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Create and store the stream config manager
     hass.data.setdefault(DOMAIN, {})
-    manager = StreamConfigManager()
+    manager = StreamConfigManager(hass)
     hass.data[DOMAIN][entry.entry_id] = {"manager": manager}
+
+    # Build entities - this will be called by each platform setup
+    manager.build_entities(hass)
 
     # Forward entry setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

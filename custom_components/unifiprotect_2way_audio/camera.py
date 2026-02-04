@@ -32,21 +32,8 @@ async def async_setup_entry(
     # Get the manager from hass.data
     manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
 
-    entities = []
-    entity_registry = er.async_get(hass)
-
-    # Find all UniFi Protect camera entities
-    for entity in entity_registry.entities.values():
-        if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
-            camera_entity = UniFiProtectProxyCamera(
-                hass,
-                entity.entity_id,
-                entity.unique_id,
-                entity.original_name or "Camera",
-                manager,
-            )
-            entities.append(camera_entity)
-            _LOGGER.debug("Created camera entity for: %s", entity.entity_id)
+    # Get entities from manager
+    entities = [device.camera for device in manager.get_devices()]
 
     if entities:
         async_add_entities(entities)
@@ -64,6 +51,7 @@ class UniFiProtectProxyCamera(Camera):
         source_camera_id: str,
         source_unique_id: str,
         camera_name: str,
+        device_info: DeviceInfo,
         manager,
     ) -> None:
         """Initialize the camera."""
@@ -76,31 +64,11 @@ class UniFiProtectProxyCamera(Camera):
         self._attr_unique_id = f"{source_unique_id}_proxy"
         self._attr_supported_features = CameraEntityFeature.STREAM
         self._manager = manager
+        self._attr_device_info = device_info
 
         # Default stream settings
         self._stream_security = "Secure"
         self._stream_resolution = "High"
-
-    async def async_added_to_hass(self) -> None:
-        """Register with manager when added to hass."""
-        await super().async_added_to_hass()
-        self._manager.register_camera(self._source_unique_id, self)
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Cleanup when removed from hass."""
-        self._manager.unregister_camera(self._source_unique_id)
-        await super().async_will_remove_from_hass()
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device information about this camera."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._source_unique_id)},
-            name=self._camera_name,
-            manufacturer="Ubiquiti",
-            model="UniFi Protect Camera",
-            via_device=None,
-        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
