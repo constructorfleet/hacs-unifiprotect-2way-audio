@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'custom_components/unifiprotect_2way_audio/manifest.json'
 
 jobs:
   release:
@@ -13,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
