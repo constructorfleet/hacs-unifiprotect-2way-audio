@@ -98,11 +98,29 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
         self.hass = hass
         self._camera_entity_id = camera_entity_id
         self._camera_unique_id = camera_unique_id
-        self._attr_name = f"{camera_entity_id.split('.')[-1]} 2-Way Audio"
+
+        # Extract camera name from entity_id
+        camera_name = camera_entity_id.split(".")[-1].replace("_", " ").title()
+
+        self._attr_name = f"{camera_name} 2-Way Audio"
         self._attr_unique_id = f"{camera_unique_id}_2way_audio"
         self._is_muted = False
         self._is_talkback_active = False
         self._talkback_task: asyncio.Task | None = None
+
+    @property
+    def device_info(self):
+        """Return device information to group with camera."""
+        from homeassistant.helpers.device_registry import DeviceInfo
+
+        from .const import DOMAIN
+
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._camera_unique_id)},
+            name=self._attr_name.replace(" 2-Way Audio", ""),
+            manufacturer="Ubiquiti",
+            model="UniFi Protect Camera",
+        )
 
     @property
     def supported_features(self) -> MediaPlayerEntityFeature:
