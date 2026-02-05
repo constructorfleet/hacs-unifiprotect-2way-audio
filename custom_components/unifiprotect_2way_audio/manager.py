@@ -79,8 +79,24 @@ class StreamConfigManager:
                 continue
 
             # Use the existing UniFi device identifiers so entities group together
+            identifiers = set(unifi_device.identifiers or ())
+
+            fallback_id = cameras[0].unique_id or cameras[0].entity_id
+
+            if not identifiers and fallback_id:
+                identifiers.add((DOMAIN, fallback_id))
+
+            if not identifiers:
+                _LOGGER.warning(
+                    "Camera %s (%s) does not expose identifiers; using unique_id fallback",
+                    cameras[0].entity_id,
+                    cameras[0].unique_id,
+                )
+
             device_info = DeviceInfo(
-                identifiers=unifi_device.identifiers,
+                identifiers=identifiers,
+                name=unifi_device.name,
+                manufacturer=unifi_device.manufacturer or "Ubiquiti",
             )
 
             # Create camera entity
