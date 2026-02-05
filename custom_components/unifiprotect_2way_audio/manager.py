@@ -78,9 +78,10 @@ class StreamConfigManager:
                 _LOGGER.warning("Device %s not found in registry", device_id)
                 continue
 
-            # Use the existing UniFi device identifiers so entities group together
+            # Use the existing UniFi device identifiers and connections so entities group together
             device_info = DeviceInfo(
                 identifiers=unifi_device.identifiers,
+                connections=unifi_device.connections,
             )
 
             # Create camera entity
