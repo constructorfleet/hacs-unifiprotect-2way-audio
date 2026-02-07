@@ -12,6 +12,7 @@ class Unifi2WayAudio extends HTMLElement {
     this._hass = null;
     this._config = null;
     this._isTalkbackActive = false;
+    this._isMuted = false;
   }
 
   setConfig(config) {
@@ -98,6 +99,10 @@ class Unifi2WayAudio extends HTMLElement {
           color: white;
           animation: pulse 1.5s ease-in-out infinite;
         }
+        .control-button.muted {
+          background: #ff9800;
+          color: white;
+        }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
@@ -141,6 +146,11 @@ class Unifi2WayAudio extends HTMLElement {
         <div class="camera-container">
           <img class="camera-image" id="camera-image" src="" alt="Camera feed">
           <div class="controls-overlay">
+            <button class="control-button" id="mute-button" title="Toggle Mute">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path id="mute-icon-path" d="M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z"/>
+              </svg>
+            </button>
             <button class="control-button" id="talkback-button" title="Push to Talk">
               <svg class="icon" viewBox="0 0 24 24">
                 <path d="M9,5A4,4 0 0,1 13,9A4,4 0 0,1 9,13A4,4 0 0,1 5,9A4,4 0 0,1 9,5M9,15C11.67,15 17,16.34 17,19V21H1V19C1,16.34 6.33,15 9,15M16.76,5.36C18.78,7.56 18.78,10.61 16.76,12.63L15.08,10.94C15.92,9.76 15.92,8.23 15.08,7.05L16.76,5.36M20.07,2C24,6.05 23.97,12.11 20.07,16L18.44,14.37C21.21,11.19 21.21,6.65 18.44,3.63L20.07,2Z"/>
@@ -158,12 +168,15 @@ class Unifi2WayAudio extends HTMLElement {
       </ha-card>
     `;
 
+    this._muteButton = this.shadowRoot.getElementById('mute-button');
     this._talkbackButton = this.shadowRoot.getElementById('talkback-button');
     this._cameraImage = this.shadowRoot.getElementById('camera-image');
     this._statusText = this.shadowRoot.getElementById('status-text');
     this._statusDot = this.shadowRoot.getElementById('status-dot');
     this._statusLabel = this.shadowRoot.getElementById('status-label');
+    this._muteIconPath = this.shadowRoot.getElementById('mute-icon-path');
 
+    this._muteButton.addEventListener('click', () => this.toggleMute());
     this._talkbackButton.addEventListener('click', () => this.toggleTalkback());
 
     this.updateCameraFeed();
@@ -232,17 +245,54 @@ class Unifi2WayAudio extends HTMLElement {
     return null;
   }
 
+  getMediaPlayerEntityId() {
+    // If device is configured, find the media_player entity for that device
+    // This should be the UniFi Protect media_player, not our custom one
+    if (this._config.device && this._hass) {
+      const deviceEntities = Object.keys(this._hass.states).filter(entityId => {
+        const entity = this._hass.states[entityId];
+        return entity && entity.attributes.device_id === this._config.device && entityId.startsWith('media_player.');
+      });
+      
+      // Find the UniFi Protect media_player (typically just the camera name without suffixes)
+      // Avoid our custom _2way_audio media_players if they exist
+      const unifiProtectPlayer = deviceEntities.find(id => 
+        !id.includes('_2way_audio') && !id.includes('talkback')
+      );
+      if (unifiProtectPlayer) {
+        return unifiProtectPlayer;
+      }
+      
+      // Fallback to first media_player entity for the device
+      if (deviceEntities.length > 0) {
+        return deviceEntities[0];
+      }
+    }
+    
+    // Fallback to configured media_player_entity
+    if (this._config.media_player_entity) {
+      return this._config.media_player_entity;
+    }
+    
+    return null;
+  }
+
   updateState() {
     if (!this._hass || !this._config) return;
 
-    // Get switch entity state
+    // Get switch entity state for talkback
     const switchEntityId = this.getSwitchEntityId();
     const switchState = this._hass.states[switchEntityId];
     
-    if (!switchState) return;
+    // Get media_player entity state for mute
+    const mediaPlayerEntityId = this.getMediaPlayerEntityId();
+    const mediaPlayerState = this._hass.states[mediaPlayerEntityId];
     
     // Determine if talkback is active from switch state
-    const isTalkbackActive = switchState.state === 'on';
+    const isTalkbackActive = switchState ? switchState.state === 'on' : false;
+    
+    // Determine if muted from media_player state
+    const isMuted = mediaPlayerState ? mediaPlayerState.attributes.is_volume_muted === true : false;
 
     // Update talkback button state
     if (isTalkbackActive !== this._isTalkbackActive) {
@@ -254,11 +304,29 @@ class Unifi2WayAudio extends HTMLElement {
       }
     }
 
+    // Update mute button state
+    if (isMuted !== this._isMuted) {
+      this._isMuted = isMuted;
+      if (isMuted) {
+        this._muteButton.classList.add('muted');
+        // Muted icon (speaker with X)
+        this._muteIconPath.setAttribute('d', 'M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.52C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z');
+      } else {
+        this._muteButton.classList.remove('muted');
+        // Unmuted icon (speaker)
+        this._muteIconPath.setAttribute('d', 'M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.85 14,18.71V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z');
+      }
+    }
+
     // Update status
     if (isTalkbackActive) {
       this._statusText.textContent = 'Talkback Active';
       this._statusDot.className = 'status-dot recording';
       this._statusLabel.textContent = 'Active';
+    } else if (isMuted) {
+      this._statusText.textContent = 'Muted';
+      this._statusDot.className = 'status-dot inactive';
+      this._statusLabel.textContent = 'Muted';
     } else {
       this._statusText.textContent = 'Ready';
       this._statusDot.className = 'status-dot inactive';
@@ -266,6 +334,31 @@ class Unifi2WayAudio extends HTMLElement {
     }
 
     this.updateCameraFeed();
+  }
+
+  async toggleMute() {
+    if (!this._hass || !this._config) return;
+
+    // Get media_player entity ID
+    const mediaPlayerEntityId = this.getMediaPlayerEntityId();
+    
+    if (!mediaPlayerEntityId) {
+      this._statusText.textContent = 'No speaker entity found';
+      console.warn('No media_player entity found for device');
+      return;
+    }
+    
+    try {
+      // Toggle mute on the media_player entity
+      await this._hass.callService('media_player', 'volume_mute', {
+        entity_id: mediaPlayerEntityId,
+        is_volume_muted: !this._isMuted,
+      });
+      this._statusText.textContent = this._isMuted ? 'Unmuted' : 'Muted';
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+      this._statusText.textContent = 'Error toggling mute';
+    }
   }
 
   async toggleTalkback() {
