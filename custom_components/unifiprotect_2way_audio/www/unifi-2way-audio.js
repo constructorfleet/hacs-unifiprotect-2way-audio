@@ -343,7 +343,7 @@ class Unifi2WayAudio extends HTMLElement {
     const mediaPlayerEntityId = this.getMediaPlayerEntityId();
     
     if (!mediaPlayerEntityId) {
-      this._statusText.textContent = 'No speaker entity found';
+      this._statusText.textContent = 'Camera speaker not available';
       console.warn('No media_player entity found for device');
       return;
     }
@@ -354,7 +354,7 @@ class Unifi2WayAudio extends HTMLElement {
         entity_id: mediaPlayerEntityId,
         is_volume_muted: !this._isMuted,
       });
-      this._statusText.textContent = this._isMuted ? 'Unmuted' : 'Muted';
+      this._statusText.textContent = !this._isMuted ? 'Unmuted' : 'Muted';
     } catch (error) {
       console.error('Error toggling mute:', error);
       this._statusText.textContent = 'Error toggling mute';
