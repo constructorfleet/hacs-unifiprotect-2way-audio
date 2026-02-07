@@ -193,6 +193,10 @@ class Unifi2WayAudio extends HTMLElement {
     }
   }
 
+  getSwitchEntityId() {
+    return this._config.switch_entity || this._config.entity.replace('media_player.', 'switch.').replace('_2way_audio', '_talkback_switch');
+  }
+
   updateState() {
     if (!this._hass || !this._config) return;
 
@@ -200,7 +204,7 @@ class Unifi2WayAudio extends HTMLElement {
     if (!state) return;
 
     // Get switch entity state if configured
-    const switchEntityId = this._config.switch_entity || this._config.entity.replace('media_player.', 'switch.').replace('_2way_audio', '_talkback_switch');
+    const switchEntityId = this.getSwitchEntityId();
     const switchState = this._hass.states[switchEntityId];
     
     // Determine if talkback is active from switch state or media player attribute
@@ -261,7 +265,7 @@ class Unifi2WayAudio extends HTMLElement {
     if (!this._hass || !this._config) return;
 
     // Get switch entity ID
-    const switchEntityId = this._config.switch_entity || this._config.entity.replace('media_player.', 'switch.').replace('_2way_audio', '_talkback_switch');
+    const switchEntityId = this.getSwitchEntityId();
     
     try {
       // Toggle the switch entity
