@@ -26,6 +26,7 @@ All requirements from the original problem statement have been implemented:
 - `__init__.py` (57 lines) - Integration initialization and setup
 - `config_flow.py` (73 lines) - UI configuration flow
 - `const.py` (25 lines) - Constants and configuration
+- `frontend.py` (80 lines) - Frontend resource registration utilities
 - `manifest.json` - Integration metadata
 - `media_player.py` (212 lines) - Core functionality
 - `services.yaml` - Service definitions
@@ -227,6 +228,14 @@ All requirements from the original problem statement have been implemented:
 - No known bugs or issues
 - Clean git history
 - Proper licensing
+
+#### Known Issues Fixed
+- **Lovelace Card Loading (v1.2.1)**: Fixed card registration by implementing proper frontend utilities
+  - Created `frontend.py` with correct `register_static_path` and `init_resource` functions
+  - Updated `__init__.py` to use proper registration methods
+  - Added `frontend` and `http` dependencies to manifest.json
+  - Card now properly registers with Home Assistant's lovelace resource system
+  - Compatible with Home Assistant 2024.1.0+
 
 #### Post-Deployment
 - Monitor for user feedback
