@@ -317,7 +317,24 @@ class Unifi2WayAudio extends HTMLElement {
 
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      this._statusText.textContent = 'Microphone access denied';
+      
+      // Provide more specific error messages
+      let errorMessage = 'Microphone access denied';
+      if (error.name === 'NotAllowedError') {
+        // Check if it's a permissions policy issue
+        if (error.message && error.message.includes('policy')) {
+          errorMessage = 'Permissions policy blocks microphone. Check docs.';
+          console.error('Permissions Policy Violation: Your reverse proxy needs to set "Permissions-Policy: microphone=(self)" header. See README for instructions.');
+        } else {
+          errorMessage = 'Microphone permission denied';
+        }
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'No microphone found';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = 'Microphone already in use';
+      }
+      
+      this._statusText.textContent = errorMessage;
       this._isRecording = false;
       this._talkbackButton.classList.remove('recording');
       this._statusDot.className = 'status-dot inactive';

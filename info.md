@@ -45,6 +45,18 @@ camera_entity: camera.your_camera
 - Home Assistant 2024.1.0 or newer
 - UniFi Protect integration configured
 - UniFi Protect cameras with speaker support
+- **HTTPS access to Home Assistant** (required for microphone access)
+- **Permissions-Policy header** configured on reverse proxy (see README for details)
+
+## Important: Microphone Access
+
+For microphone access to work, your reverse proxy (Nginx, Caddy, Apache, etc.) must be configured to allow microphone access via the `Permissions-Policy` header:
+
+```
+Permissions-Policy: microphone=(self)
+```
+
+See the [README](https://github.com/constructorfleet/hacs-unifiprotect-2way-audio#permissions-policy-violation-microphone-not-allowed) for detailed configuration instructions for your specific reverse proxy.
 
 ---
 

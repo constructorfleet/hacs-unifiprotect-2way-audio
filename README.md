@@ -158,11 +158,99 @@ target:
 
 ## Troubleshooting
 
-### Microphone Access Denied
+### Permissions Policy Violation: Microphone Not Allowed
+
+If you see the error `[Violation] Permissions policy violation: microphone is not allowed in this document` in your browser console, this means your Home Assistant instance needs to be configured to allow microphone access.
+
+**This issue occurs because the HTTP `Permissions-Policy` header is blocking microphone access.**
+
+#### Solution: Configure Your Reverse Proxy
+
+You need to add the `Permissions-Policy` header to allow microphone access. Choose the solution based on your setup:
+
+##### For Nginx (or Nginx Proxy Manager)
+
+Add this to your Home Assistant proxy configuration:
+
+```nginx
+location / {
+    proxy_pass http://homeassistant:8123;
+    # ... other proxy settings ...
+    
+    # Allow microphone access
+    add_header Permissions-Policy "microphone=(self)" always;
+}
+```
+
+**For Nginx Proxy Manager users:**
+1. Go to your Home Assistant proxy host
+2. Click "Edit"
+3. Go to the "Advanced" tab
+4. Add this line:
+   ```
+   add_header Permissions-Policy "microphone=(self)" always;
+   ```
+5. Save and restart Nginx Proxy Manager
+
+##### For Caddy
+
+Add this to your Caddyfile:
+
+```caddy
+your-domain.com {
+    reverse_proxy homeassistant:8123
+    
+    header {
+        Permissions-Policy "microphone=(self)"
+    }
+}
+```
+
+##### For Apache
+
+Add this to your VirtualHost configuration:
+
+```apache
+<Location />
+    ProxyPass http://homeassistant:8123/
+    ProxyPassReverse http://homeassistant:8123/
+    
+    Header set Permissions-Policy "microphone=(self)"
+</Location>
+```
+
+##### For Traefik
+
+Add this to your dynamic configuration or docker labels:
+
+```yaml
+http:
+  middlewares:
+    permissions-policy:
+      headers:
+        customResponseHeaders:
+          Permissions-Policy: "microphone=(self)"
+```
+
+#### After Making Changes
+
+1. Restart your reverse proxy
+2. Clear your browser cache
+3. Reload Home Assistant
+4. Test the microphone button again
+
+#### Verify the Fix
+
+Open your browser's developer console (F12) and check the Network tab. Look for the main Home Assistant page request and verify that the `Permissions-Policy` header includes `microphone=(self)`.
+
+### Microphone Access Denied (Browser Permission)
+
+If the permissions policy is configured correctly but you still can't access the microphone:
 
 - Ensure your browser has permission to access the microphone
 - Check browser settings and grant microphone access to Home Assistant
-- On mobile, check app permissions
+- On mobile, check app permissions in device settings
+- Make sure you're accessing Home Assistant via HTTPS (required for microphone access)
 
 ### No Audio Heard on Camera
 
