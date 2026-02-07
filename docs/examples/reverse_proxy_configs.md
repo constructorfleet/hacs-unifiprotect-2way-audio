@@ -51,16 +51,22 @@ server {
 
 ### Nginx Configuration Snippet (Add to Existing Config)
 
-If you already have Nginx configured, just add this line in your `location /` block:
+If you already have Nginx configured, add this line in your `server` block (outside of any `location` blocks):
 
 ```nginx
-location / {
-    # ... your existing proxy settings ...
+server {
+    # ... your existing SSL and server settings ...
     
-    # Add this line for microphone access
+    # Add this line for microphone access (in server block, not location block)
     add_header Permissions-Policy "microphone=(self)" always;
+    
+    location / {
+        # ... your existing proxy settings ...
+    }
 }
 ```
+
+**Important:** Place the `add_header` directive in the `server` block to ensure it doesn't override other security headers.
 
 ---
 

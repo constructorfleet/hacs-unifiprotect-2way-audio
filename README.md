@@ -188,15 +188,19 @@ Supported proxies:
 
 ##### For Nginx (or Nginx Proxy Manager)
 
-Add this to your Home Assistant proxy configuration:
+Add this to your Home Assistant `server` block:
 
 ```nginx
-location / {
-    proxy_pass http://homeassistant:8123;
-    # ... other proxy settings ...
+server {
+    # ... SSL and server settings ...
     
     # Allow microphone access
     add_header Permissions-Policy "microphone=(self)" always;
+    
+    location / {
+        proxy_pass http://homeassistant:8123;
+        # ... other proxy settings ...
+    }
 }
 ```
 
