@@ -93,12 +93,7 @@ class TalkbackSwitch(SwitchEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes for diagnostics."""
-        if self._media_player_id:
-            attrs = {
-                "target_media_player": self._media_player_id
-            }
-        else:
-            attrs = {}
+        attrs = {"target_media_player": self._media_player_id} if self._media_player_id else {}
         return {
             **attrs,
             "session_state": self._session_state,
