@@ -164,9 +164,27 @@ If you see the error `[Violation] Permissions policy violation: microphone is no
 
 **This issue occurs because the HTTP `Permissions-Policy` header is blocking microphone access.**
 
-#### Solution: Configure Your Reverse Proxy
+#### Quick Fix
 
-You need to add the `Permissions-Policy` header to allow microphone access. Choose the solution based on your setup:
+You need to add the `Permissions-Policy` header to your reverse proxy configuration:
+
+```
+Permissions-Policy: microphone=(self)
+```
+
+#### Detailed Configuration Guides
+
+For complete configuration examples for your specific reverse proxy, see:
+**[Reverse Proxy Configuration Guide](docs/examples/reverse_proxy_configs.md)**
+
+Supported proxies:
+- Nginx / Nginx Proxy Manager
+- Caddy
+- Apache
+- Traefik
+- Cloudflare Tunnel
+
+#### Quick Examples
 
 ##### For Nginx (or Nginx Proxy Manager)
 
@@ -231,6 +249,8 @@ http:
         customResponseHeaders:
           Permissions-Policy: "microphone=(self)"
 ```
+
+> **💡 Tip:** For more detailed configuration examples, troubleshooting steps, and support for additional reverse proxies, see the complete [Reverse Proxy Configuration Guide](docs/examples/reverse_proxy_configs.md).
 
 #### After Making Changes
 
