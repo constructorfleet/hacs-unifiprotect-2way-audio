@@ -78,7 +78,7 @@ class StreamConfigManager:
                 connections=unifi_device.connections,
             )
 
-            camera_entity = [e for e in entities if e.domin == "camera"][0]
+            camera_entity = [e for e in entities if e.domain == "camera"][0]
             media_player_entities = [e for e in entities if e.domain == "media_player"]
 
             # Create microphone entity for talkback control
