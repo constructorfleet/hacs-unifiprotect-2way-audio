@@ -9,7 +9,8 @@ hacs-unifiprotect-2way-audio/
 │   ├── config_flow.py                            # UI configuration flow
 │   ├── const.py                                  # Constants and configuration
 │   ├── manifest.json                             # Integration metadata
-│   ├── media_player.py                           # Media player platform (core)
+│   ├── microphone.py                             # Microphone platform (receives audio)
+│   ├── switch.py                                 # Switch platform (talkback control)
 │   ├── services.yaml                             # Service definitions
 │   ├── strings.json                              # UI translations (modern)
 │   ├── translations/
@@ -41,12 +42,12 @@ Settings → Devices & Services → Add Integration → UniFi Protect 2-Way Audi
 
 ### 3. Entity Creation
 ```
-Integration Setup → Detect UniFi Protect Cameras → Create Unified Device per Camera
-  ├── Camera Entity (video streaming)
-  ├── Stream Security Select (Secure/Insecure)
-  ├── Stream Resolution Select (High/Medium/Low)
-  └── Media Player Entity (2-way audio talkback)
+Integration Setup → Piggyback on UniFi Protect Integration → Create Entities per Camera
+  ├── Microphone Entity (receives audio from browser)
+  └── Switch Entity (talkback control)
 ```
+
+**Note**: This integration leverages the existing UniFi Protect integration for camera discovery and device management. It does not create duplicate camera entities or devices.
 
 ### 4. Card Setup
 ```
@@ -56,94 +57,92 @@ Add Resource → Add Card to Dashboard → Configure Entity
 ## Entity Architecture
 
 ### Device Structure
-Each UniFi Protect camera creates **one device** with **four entities**:
+This integration **piggybacks on the existing UniFi Protect integration** and adds **two entities** per camera with talkback capability:
 
 ```
-Device: Front Door Camera
-├── camera.front_door (Camera Entity)
-│   └── Streams video from UniFi Protect
-│   └── Stream config controlled by select entities
-├── select.front_door_stream_security (Select Entity)
-│   └── Options: Secure, Insecure
-├── select.front_door_stream_resolution (Select Entity)
-│   └── Options: High, Medium, Low
-└── media_player.front_door_2way_audio (Media Player)
-    └── Talkback functionality for 2-way audio
+Device: Front Door Camera (from UniFi Protect integration)
+├── camera.front_door (from UniFi Protect)
+│   └── Video streaming and controls
+├── microphone.front_door_talkback (from this integration)
+│   └── Receives audio data from browser
+└── switch.front_door_talkback (from this integration)
+    └── Controls talkback on/off state
 ```
 
-This unified structure ensures:
-- **No device proliferation**: 1 device per camera instead of multiple
-- **Logical grouping**: All camera-related entities grouped together
-- **Easy management**: Find all controls for a camera in one place
-- **Dynamic configuration**: Change stream settings via select entities
+This architecture ensures:
+- **No device duplication**: Uses existing UniFi Protect device
+- **Logical grouping**: Talkback entities grouped with camera device
+- **Simple control**: One switch entity to control talkback
+- **Clean integration**: Extends existing functionality without replacing it
 
 ## Data Flow
 
 ### Talkback Activation
 ```
-1. User presses talkback button on Lovelace card
-2. Browser requests microphone access
-3. MediaRecorder captures audio
-4. Audio encoded to WebM/Opus format
-5. Base64 encode audio data
-6. Call start_talkback service with audio data
-7. Media player entity processes request
-8. Audio streamed to UniFi Protect camera via uiprotect library
+1. User turns on talkback switch (via card or Home Assistant UI)
+2. Switch entity turns on and opens backchannel to camera
+3. Browser requests microphone access
+4. MediaRecorder captures audio stream
+5. Audio encoded to WebM/Opus format
+6. Audio chunks sent to microphone entity
+7. Microphone entity processes and forwards to switch entity
+8. Switch entity streams audio to UniFi Protect camera via backchannel
 9. Camera plays audio through speaker
+10. User turns off switch to end talkback
 ```
 
-### Mute Toggle
+### Switch Control Flow
 ```
-1. User clicks mute button
-2. Call toggle_mute service
-3. Media player entity updates mute state
-4. State reflected in Home Assistant
-5. Card UI updates with new state
+1. Switch turned ON:
+   ├── Open backchannel connection to camera
+   ├── Set up audio streaming pipeline
+   └── Update switch state to ON
+
+2. Switch turned OFF:
+   ├── Close backchannel connection
+   ├── Stop audio streaming
+   └── Update switch state to OFF
 ```
 
 ## Key Components
 
-### Camera Entity (`camera.py`)
-- **Purpose**: Proxy camera entity that displays video from UniFi Protect
+### Microphone Entity (`microphone.py`)
+- **Purpose**: Receives audio data from browser for transmission to camera
 - **Features**:
+  - Accepts audio streams from browser (WebM/Opus format)
+  - Processes and decodes audio data
+  - Buffers audio for transmission
+  - Works in conjunction with switch entity
   - Discovers cameras from UniFi Protect integration
-  - Creates camera entities for each UniFi Protect camera
-  - Proxies video stream from source camera
-  - Stream configuration controlled by select entities
-  - Groups with other entities under unified device
+  - Groups with camera device from UniFi Protect
 
-### Select Entities (`select.py`)
-- **Purpose**: Configure camera stream settings dynamically
+### Switch Entity (`switch.py`)
+- **Purpose**: Controls talkback backchannel on/off state
 - **Features**:
-  - Stream Security select (Secure/Insecure)
-  - Stream Resolution select (High/Medium/Low)
-  - Changes update camera stream in real-time
-  - Visual icons change based on selection
-  - Groups with camera under unified device
-
-### Media Player Entity (`media_player.py`)
-- **Purpose**: Bridge between Home Assistant and UniFi Protect for audio
-- **Features**:
-  - Provides talkback functionality for 2-way audio
-  - Handles talkback start/stop
-  - Manages mute state
-  - Streams audio to cameras via uiprotect library
-  - Groups with camera under unified device
+  - Simple on/off control for talkback
+  - Opens/closes backchannel connection to camera
+  - Manages audio streaming pipeline
+  - Receives processed audio from microphone entity
+  - Streams audio to camera via uiprotect library backchannel
+  - Shows active state when talkback is in use
+  - Groups with camera device from UniFi Protect
 
 ### Lovelace Card (`unifiprotect-2way-audio-card.js`)
-- **Purpose**: User interface for 2-way audio control
+- **Purpose**: User interface for talkback control
 - **Features**:
-  - Camera feed display
+  - Camera feed display (uses UniFi Protect camera entity)
   - Microphone capture via Web Audio API
-  - Push-to-talk button (mouse + touch)
-  - Mute toggle button
+  - Talkback switch toggle
+  - Push-to-talk button integration
   - Status indicators
   - Real-time state updates
+  - Streams audio to microphone entity when switch is on
 
 ### Config Flow (`config_flow.py`)
 - **Purpose**: UI-based integration setup
 - **Features**:
   - One-click setup (no configuration required)
+  - Automatically discovers UniFi Protect cameras
   - Prevents duplicate installations
   - Options flow for future enhancements
 
@@ -175,17 +174,20 @@ This unified structure ensures:
 
 ### With UniFi Protect Integration
 ```python
-# The integration discovers UniFi Protect cameras
+# The integration piggybacks on UniFi Protect for camera discovery
 entity_registry = er.async_get(hass)
 for entity in entity_registry.entities.values():
     if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
-        # Create 2-way audio entity for this camera
+        # Create microphone and switch entities for this camera
+        # Attach to existing UniFi Protect device
 ```
+
+**Important**: This integration does not create its own devices or camera entities. It extends the existing UniFi Protect integration by adding talkback functionality through microphone and switch entities.
 
 ### With Home Assistant Core
 ```python
-# Register as media_player platform
-PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER]
+# Register microphone and switch platforms
+PLATFORMS: list[Platform] = [Platform.MICROPHONE, Platform.SWITCH]
 
 # Use config entry setup
 await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -193,23 +195,25 @@ await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 ## Service Definitions
 
-### start_talkback
-- **Domain**: `unifiprotect_2way_audio`
-- **Target**: Media player entity
-- **Parameters**:
-  - `audio_data` (optional): Base64 encoded audio
-  - `sample_rate` (optional): Audio sample rate (default: 16000)
-  - `channels` (optional): Audio channels (default: 1)
-
-### stop_talkback
-- **Domain**: `unifiprotect_2way_audio`
-- **Target**: Media player entity
+### switch.turn_on
+- **Domain**: `switch`
+- **Target**: Talkback switch entity
 - **Parameters**: None
+- **Purpose**: Opens backchannel and starts talkback mode
 
-### toggle_mute
-- **Domain**: `unifiprotect_2way_audio`
-- **Target**: Media player entity
+### switch.turn_off
+- **Domain**: `switch`
+- **Target**: Talkback switch entity
 - **Parameters**: None
+- **Purpose**: Closes backchannel and stops talkback mode
+
+### switch.toggle
+- **Domain**: `switch`
+- **Target**: Talkback switch entity
+- **Parameters**: None
+- **Purpose**: Toggles talkback on/off
+
+**Note**: The integration uses standard Home Assistant switch services. The microphone entity automatically handles audio streaming when the switch is turned on.
 
 ## Security Considerations
 
@@ -222,10 +226,11 @@ await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 Potential areas for improvement:
 - WebRTC support for lower latency
-- Direct camera connection (bypass Home Assistant)
 - Audio preprocessing (noise reduction, echo cancellation)
 - Recording capability
 - Multi-camera broadcast
 - Voice activity detection
 - Custom audio sample rates per camera
 - Audio level visualization
+- Push-to-talk automation triggers
+- Talkback activity sensors

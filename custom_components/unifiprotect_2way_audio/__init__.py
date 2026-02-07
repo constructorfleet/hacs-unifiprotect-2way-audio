@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 # Platforms to setup
-PLATFORMS = [Platform.CAMERA, Platform.MEDIA_PLAYER, Platform.SELECT, Platform.SWITCH]
+PLATFORMS = ["microphone"]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

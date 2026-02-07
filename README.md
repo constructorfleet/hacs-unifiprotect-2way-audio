@@ -3,20 +3,17 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![GitHub Release](https://img.shields.io/github/release/constructorfleet/hacs-unifiprotect-2way-audio.svg)](https://github.com/constructorfleet/hacs-unifiprotect-2way-audio/releases)
 
-A HACS-installable Home Assistant custom component that adds 2-way audio support and configurable camera streams for UniFi Protect cameras. This integration creates a unified device for each camera with camera entity, stream configuration selects, and 2-way audio controls.
+A HACS-installable Home Assistant custom component that adds a microphone/talkback switch entity for UniFi Protect cameras. This lightweight integration piggybacks on the existing UniFi Protect integration, adding only talkback control functionality via a switch entity.
 
 ## Features
 
-- 📹 **Camera Entities**: Each UniFi Protect camera gets its own camera entity with video streaming
-- 🎛️ **Stream Configuration**: Select entities to configure stream security and resolution
-- 🎤 **2-Way Audio Support**: Talk to your UniFi Protect cameras directly from Home Assistant
-- 🔇 **Mute Control**: Toggle microphone mute state
-- 🔘 **Toggle Talkback**: Click once to turn on, click again to turn off
-- 🔄 **TalkBack Switch**: Dedicated switch entity for automation and control
+- 🎤 **2-Way Audio Switch**: Simple talkback switch entity for each UniFi Protect camera
+- 🔘 **Toggle Talkback**: Use switch.turn_on to start talkback, switch.turn_off to stop
 - 🌐 **Browser Audio**: Uses browser/companion app microphone
 - 📱 **Touch Support**: Works on mobile devices
 - 🏠 **HACS Compatible**: Easy installation through HACS
-- 📦 **Unified Devices**: One device per camera with all related entities grouped together
+- 🔄 **Lightweight**: Only adds talkback control, relies on upstream UniFi Protect integration for camera entities
+- 🤖 **Automation Ready**: Standard switch entity works with all Home Assistant automations
 
 ## Prerequisites
 
@@ -58,118 +55,129 @@ A HACS-installable Home Assistant custom component that adds 2-way audio support
 
 ### What Gets Created
 
-For each UniFi Protect camera, the integration creates **one device** with the following entities:
+For each UniFi Protect camera with speaker support, the integration creates:
 
-1. **Camera Entity** (`camera.camera_name`)
-   - Displays video stream from the UniFi Protect camera
-   - Stream configuration is controlled by the select entities
+**TalkBack Switch** (`switch.camera_name_talkback`)
+- Toggle switch for talkback functionality
+- Turn ON to start 2-way audio talkback
+- Turn OFF to stop talkback
+- Works with all standard Home Assistant automations and scripts
+- Can be controlled via service calls, UI, or voice assistants
 
-2. **Stream Security Select** (`select.camera_name_stream_security`)
-   - Options: "Secure" or "Insecure"
-   - Changes which stream type the camera uses
-
-3. **Stream Resolution Select** (`select.camera_name_stream_resolution`)
-   - Options: "High", "Medium", or "Low"
-   - Changes the resolution of the stream
-
-4. **2-Way Audio Media Player** (`media_player.camera_name_2way_audio`)
-   - Provides talkback functionality
-   - Used internally by the integration
-
-5. **TalkBack Switch** (`switch.camera_name_talkback_switch`)
-   - Toggle switch for talkback functionality
-   - Turn ON to start talkback, OFF to stop talkback
-   - Automatically reflects talkback state in the Lovelace card
-
-All entities are grouped under a single device for easy management.
+**Note:** This integration ONLY creates the talkback switch. Camera entities, streams, and all other functionality come from the upstream UniFi Protect integration. This integration simply adds talkback control on top of your existing UniFi Protect setup.
 
 ### Lovelace Card Setup
 
-The Lovelace card is automatically registered when the integration is set up. The card resource is available at:
-- URL: `/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js`
+You can add the talkback switch to any dashboard using standard Home Assistant cards:
 
-If you need to manually add it (in case of issues), you can:
-1. Go to **Settings** → **Dashboards**
-2. Click the three dots → **Resources**
-3. Click **+ Add Resource**
-4. URL: `/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js`
-5. Resource type: JavaScript Module
-6. Click **Create**
-
-To add the card to your dashboard:
-   ```yaml
-   type: custom:unifiprotect-2way-audio-card
-   entity: media_player.your_camera_2way_audio
-   camera_entity: camera.your_camera
-   ```
-
-### Example Card Configuration
+#### Simple Switch Card
 
 ```yaml
-type: custom:unifiprotect-2way-audio-card
-entity: media_player.front_door_camera_2way_audio
-camera_entity: camera.front_door
+type: entities
+entities:
+  - entity: switch.front_door_talkback
+    name: Front Door Talkback
+```
+
+#### Combined with Camera Card
+
+```yaml
+type: vertical-stack
+cards:
+  - type: picture-entity
+    entity: camera.front_door  # From UniFi Protect integration
+    camera_image: camera.front_door
+  - type: entities
+    entities:
+      - entity: switch.front_door_talkback
+        name: Talkback
+```
+
+#### Button Card
+
+```yaml
+type: button
+entity: switch.front_door_talkback
+name: Front Door Talkback
+icon: mdi:microphone
+tap_action:
+  action: toggle
 ```
 
 ## Usage
 
-### Card Controls
-
-- **Microphone Button** (left): Toggle mute/unmute
-  - Click to mute or unmute your microphone
-  - Orange color indicates muted state
-  
-- **Talkback Button** (right): Toggle talkback
-  - Click once to turn on talkback (starts 2-way audio)
-  - Click again to turn off talkback (stops 2-way audio)
-  - Accent color with pulsing animation indicates active talkback
-  - Button state automatically syncs with the TalkBack switch entity
-
 ### TalkBack Switch
 
-The integration creates a switch entity (`switch.camera_name_talkback_switch`) for each camera:
+The integration creates a switch entity (`switch.camera_name_talkback`) for each camera with speaker support:
 
-- **Turn ON**: Starts 2-way audio talkback
+- **Turn ON**: Starts 2-way audio talkback (activates your microphone and streams to the camera)
 - **Turn OFF**: Stops 2-way audio talkback
-- **Auto-sync**: The Lovelace card automatically reflects the switch state
 - **Automations**: Use the switch in automations for advanced control
+- **Voice Control**: Compatible with voice assistants (e.g., "Turn on front door talkback")
+
+### Example Automations
+
+**Start talkback when doorbell is pressed:**
+```yaml
+automation:
+  - alias: "Doorbell Auto-Answer"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.front_door_doorbell  # From UniFi Protect
+        to: "on"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.front_door_talkback
+```
+
+**Stop talkback after 30 seconds:**
+```yaml
+automation:
+  - alias: "Auto-Stop Talkback"
+    trigger:
+      - platform: state
+        entity_id: switch.front_door_talkback
+        to: "on"
+        for: "00:00:30"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.front_door_talkback
+```
 
 ### Services
 
-The integration provides three services:
+The integration uses standard Home Assistant switch services:
 
-#### `unifiprotect_2way_audio.start_talkback`
+#### `switch.turn_on`
 
 Start 2-way audio talkback to a camera.
 
 ```yaml
-service: unifiprotect_2way_audio.start_talkback
+service: switch.turn_on
 target:
-  entity_id: media_player.front_door_camera_2way_audio
-data:
-  audio_data: "base64_encoded_audio_data"  # Optional
-  sample_rate: 16000  # Optional, default: 16000
-  channels: 1  # Optional, default: 1
+  entity_id: switch.front_door_talkback
 ```
 
-#### `unifiprotect_2way_audio.stop_talkback`
+#### `switch.turn_off`
 
 Stop 2-way audio talkback.
 
 ```yaml
-service: unifiprotect_2way_audio.stop_talkback
+service: switch.turn_off
 target:
-  entity_id: media_player.front_door_camera_2way_audio
+  entity_id: switch.front_door_talkback
 ```
 
-#### `unifiprotect_2way_audio.toggle_mute`
+#### `switch.toggle`
 
-Toggle microphone mute state.
+Toggle talkback on/off.
 
 ```yaml
-service: unifiprotect_2way_audio.toggle_mute
+service: switch.toggle
 target:
-  entity_id: media_player.front_door_camera_2way_audio
+  entity_id: switch.front_door_talkback
 ```
 
 ## Troubleshooting
@@ -325,7 +333,8 @@ This integration should work with any UniFi Protect camera that has speaker supp
 - Captures audio using the Web Audio API (MediaRecorder)
 - Audio is encoded in WebM/Opus format
 - Default sample rate: 16kHz mono
-- Integrates with Home Assistant media_player platform
+- Integrates with Home Assistant switch platform
+- Piggybacks on the official UniFi Protect integration for camera discovery and management
 
 ## Contributing
 
