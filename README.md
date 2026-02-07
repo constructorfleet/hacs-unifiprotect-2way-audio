@@ -233,12 +233,17 @@ your-domain.com {
 Add this to your VirtualHost configuration:
 
 ```apache
-<Location />
-    ProxyPass http://homeassistant:8123/
-    ProxyPassReverse http://homeassistant:8123/
+<VirtualHost *:443>
+    # ... SSL and server settings ...
     
+    # Allow microphone access
     Header always set Permissions-Policy "microphone=(self)"
-</Location>
+    
+    <Location />
+        ProxyPass http://homeassistant:8123/
+        ProxyPassReverse http://homeassistant:8123/
+    </Location>
+</VirtualHost>
 ```
 
 ##### For Traefik

@@ -325,7 +325,7 @@ class Unifi2WayAudio extends HTMLElement {
       if (error.name === 'NotAllowedError') {
         // Check if it's a permissions policy issue by examining the error message
         const errorMsg = error.message ? error.message.toLowerCase() : '';
-        if (errorMsg.includes('policy') || errorMsg.includes('permission') && errorMsg.includes('denied')) {
+        if (errorMsg.includes('policy') || (errorMsg.includes('permission') && errorMsg.includes('denied'))) {
           errorMessage = 'Permissions policy blocks microphone. Check docs.';
           detailedLog = 'Permissions Policy Violation: Your reverse proxy needs to set "Permissions-Policy: microphone=(self)" header. See README for instructions.';
         } else {
