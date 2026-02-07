@@ -10,13 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-try:
-    from homeassistant.components.lovelace import utils
-except ImportError:
-    # Fallback for older HA versions or if utils is not available
-    utils = None
-
 from .const import DOMAIN
+from .frontend import register_static_path, init_resource
 from .manager import StreamConfigManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,36 +27,31 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     _LOGGER.info("Setting up UniFi Protect 2-Way Audio integration")
 
     # Register static path for the Lovelace card
-    if utils:
-        try:
-            path = Path(__file__).parent / "www"
-            await utils.register_static_path(
-                hass,
-                "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
-                str(path / "unifiprotect-2way-audio-card.js")
-            )
-
-            # Get version from integration metadata
-            version = getattr(
-                hass.data.get("integrations", {}).get(DOMAIN), "version", "1.0.0"
-            )
-
-            # Add card to resources
-            await utils.init_resource(
-                hass,
-                "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
-                str(version)
-            )
-            _LOGGER.info(
-                "Registered UniFi Protect 2-Way Audio card resources (v%s)",
-                version,
-            )
-        except Exception as err:
-            _LOGGER.warning("Failed to register card resources: %s", err)
-    else:
-        _LOGGER.warning(
-            "Lovelace utils not available, card resource registration skipped"
+    try:
+        path = Path(__file__).parent / "www"
+        await register_static_path(
+            hass,
+            "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
+            str(path / "unifiprotect-2way-audio-card.js")
         )
+
+        # Get version from integration metadata
+        version = getattr(
+            hass.data.get("integrations", {}).get(DOMAIN), "version", "1.0.0"
+        )
+
+        # Add card to resources
+        await init_resource(
+            hass,
+            "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
+            str(version)
+        )
+        _LOGGER.info(
+            "Registered UniFi Protect 2-Way Audio card resources (v%s)",
+            version,
+        )
+    except Exception as err:
+        _LOGGER.warning("Failed to register card resources: %s", err)
 
     return True
 
