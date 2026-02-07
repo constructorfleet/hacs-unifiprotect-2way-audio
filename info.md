@@ -8,7 +8,9 @@ Add 2-way audio support to your UniFi Protect cameras with microphone and speake
 
 🔇 **Mute Control** - Toggle microphone mute state
 
-🎛️ **Push-to-Talk** - Hold button to talk, release to stop
+🔘 **Toggle Talkback** - Click once to turn on, click again to turn off
+
+🔄 **TalkBack Switch** - Dedicated switch entity for automation and control
 
 📹 **Camera Overlay** - Controls overlay directly on camera feed
 
@@ -45,6 +47,18 @@ camera_entity: camera.your_camera
 - Home Assistant 2024.1.0 or newer
 - UniFi Protect integration configured
 - UniFi Protect cameras with speaker support
+- **HTTPS access to Home Assistant** (required for microphone access)
+- **Permissions-Policy header** configured on reverse proxy (see README for details)
+
+## Important: Microphone Access
+
+For microphone access to work, your reverse proxy (Nginx, Caddy, Apache, etc.) must be configured to allow microphone access via the `Permissions-Policy` header:
+
+```
+Permissions-Policy: microphone=(self)
+```
+
+See the [README](https://github.com/constructorfleet/hacs-unifiprotect-2way-audio#permissions-policy-violation-microphone-not-allowed) for detailed configuration instructions for your specific reverse proxy.
 
 ---
 

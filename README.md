@@ -11,7 +11,8 @@ A HACS-installable Home Assistant custom component that adds 2-way audio support
 - 🎛️ **Stream Configuration**: Select entities to configure stream security and resolution
 - 🎤 **2-Way Audio Support**: Talk to your UniFi Protect cameras directly from Home Assistant
 - 🔇 **Mute Control**: Toggle microphone mute state
-- 🎛️ **Push-to-Talk**: Hold button to talk, release to stop
+- 🔘 **Toggle Talkback**: Click once to turn on, click again to turn off
+- 🔄 **TalkBack Switch**: Dedicated switch entity for automation and control
 - 🌐 **Browser Audio**: Uses browser/companion app microphone
 - 📱 **Touch Support**: Works on mobile devices
 - 🏠 **HACS Compatible**: Easy installation through HACS
@@ -73,7 +74,12 @@ For each UniFi Protect camera, the integration creates **one device** with the f
 
 4. **2-Way Audio Media Player** (`media_player.camera_name_2way_audio`)
    - Provides talkback functionality
-   - Used by the Lovelace card for push-to-talk
+   - Used internally by the integration
+
+5. **TalkBack Switch** (`switch.camera_name_talkback_switch`)
+   - Toggle switch for talkback functionality
+   - Turn ON to start talkback, OFF to stop talkback
+   - Automatically reflects talkback state in the Lovelace card
 
 All entities are grouped under a single device for easy management.
 
@@ -113,10 +119,20 @@ camera_entity: camera.front_door
   - Click to mute or unmute your microphone
   - Orange color indicates muted state
   
-- **Talkback Button** (right): Push to talk
-  - Press and hold to start talking
-  - Release to stop talking
-  - Red pulsing indicates active recording
+- **Talkback Button** (right): Toggle talkback
+  - Click once to turn on talkback (starts 2-way audio)
+  - Click again to turn off talkback (stops 2-way audio)
+  - Accent color with pulsing animation indicates active talkback
+  - Button state automatically syncs with the TalkBack switch entity
+
+### TalkBack Switch
+
+The integration creates a switch entity (`switch.camera_name_talkback_switch`) for each camera:
+
+- **Turn ON**: Starts 2-way audio talkback
+- **Turn OFF**: Stops 2-way audio talkback
+- **Auto-sync**: The Lovelace card automatically reflects the switch state
+- **Automations**: Use the switch in automations for advanced control
 
 ### Services
 
@@ -158,11 +174,128 @@ target:
 
 ## Troubleshooting
 
-### Microphone Access Denied
+### Permissions Policy Violation: Microphone Not Allowed
+
+If you see the error `[Violation] Permissions policy violation: microphone is not allowed in this document` in your browser console, this means your Home Assistant instance needs to be configured to allow microphone access.
+
+**This issue occurs because the HTTP `Permissions-Policy` header is blocking microphone access.**
+
+#### Quick Fix
+
+You need to add the `Permissions-Policy` header to your reverse proxy configuration:
+
+```
+Permissions-Policy: microphone=(self)
+```
+
+#### Detailed Configuration Guides
+
+For complete configuration examples for your specific reverse proxy, see:
+**[Reverse Proxy Configuration Guide](docs/examples/reverse_proxy_configs.md)**
+
+Supported proxies:
+- Nginx / Nginx Proxy Manager
+- Caddy
+- Apache
+- Traefik
+- Cloudflare Tunnel
+
+#### Quick Examples
+
+##### For Nginx (or Nginx Proxy Manager)
+
+Add this to your Home Assistant `server` block:
+
+```nginx
+server {
+    # ... SSL and server settings ...
+    
+    # Allow microphone access
+    add_header Permissions-Policy "microphone=(self)" always;
+    
+    location / {
+        proxy_pass http://homeassistant:8123;
+        # ... other proxy settings ...
+    }
+}
+```
+
+**For Nginx Proxy Manager users:**
+1. Go to your Home Assistant proxy host
+2. Click "Edit"
+3. Go to the "Advanced" tab
+4. Add this line:
+   ```
+   add_header Permissions-Policy "microphone=(self)" always;
+   ```
+5. Save and restart Nginx Proxy Manager
+
+##### For Caddy
+
+Add this to your Caddyfile:
+
+```caddy
+your-domain.com {
+    reverse_proxy homeassistant:8123
+    
+    header {
+        Permissions-Policy "microphone=(self)"
+    }
+}
+```
+
+##### For Apache
+
+Add this to your VirtualHost configuration:
+
+```apache
+<VirtualHost *:443>
+    # ... SSL and server settings ...
+    
+    # Allow microphone access
+    Header always set Permissions-Policy "microphone=(self)"
+    
+    <Location />
+        ProxyPass http://homeassistant:8123/
+        ProxyPassReverse http://homeassistant:8123/
+    </Location>
+</VirtualHost>
+```
+
+##### For Traefik
+
+Add this to your dynamic configuration or docker labels:
+
+```yaml
+http:
+  middlewares:
+    permissions-policy:
+      headers:
+        customResponseHeaders:
+          Permissions-Policy: "microphone=(self)"
+```
+
+> **💡 Tip:** For more detailed configuration examples, troubleshooting steps, and support for additional reverse proxies, see the complete [Reverse Proxy Configuration Guide](docs/examples/reverse_proxy_configs.md).
+
+#### After Making Changes
+
+1. Restart your reverse proxy
+2. Clear your browser cache
+3. Reload Home Assistant
+4. Test the microphone button again
+
+#### Verify the Fix
+
+Open your browser's developer console (F12) and check the Network tab. Look for the main Home Assistant page request and verify that the `Permissions-Policy` header includes `microphone=(self)`.
+
+### Microphone Access Denied (Browser Permission)
+
+If the permissions policy is configured correctly but you still can't access the microphone:
 
 - Ensure your browser has permission to access the microphone
 - Check browser settings and grant microphone access to Home Assistant
-- On mobile, check app permissions
+- On mobile, check app permissions in device settings
+- Make sure you're accessing Home Assistant via HTTPS (required for microphone access)
 
 ### No Audio Heard on Camera
 
