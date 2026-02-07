@@ -85,7 +85,7 @@ class Unifi2WayAudio extends HTMLElement {
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         .control-button:hover {
-          background: rgba(255, 255, 255, 1);
+          background: var(--accent-color);
           transform: scale(1.1);
         }
         .control-button:active {
