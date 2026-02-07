@@ -26,6 +26,7 @@ class Unifi2WayAudio extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     this.updateState();
+    this.updateCameraFeed();
   }
 
   getCardSize() {
@@ -143,12 +144,7 @@ class Unifi2WayAudio extends HTMLElement {
       </style>
       <ha-card>
         <div class="camera-container">
-          <ha-camera-stream
-            .hass=${this._hass}
-            .stateObj=${this.getCameraEntity()}
-            allow-exoplayer
-            controls
-          ></ha-camera-stream>
+          <div id="camera-stream"></div>
           <div class="controls-overlay">
             <button class="control-button" id="mute-button" title="Toggle Mute">
               <svg class="icon" viewBox="0 0 24 24">
@@ -174,7 +170,7 @@ class Unifi2WayAudio extends HTMLElement {
 
     this._muteButton = this.shadowRoot.getElementById('mute-button');
     this._talkbackButton = this.shadowRoot.getElementById('talkback-button');
-    // this._cameraImage = this.shadowRoot.getElementById('camera-image');
+    this._cameraStream = this.shadowRoot.getElementById('camera-stream');
     this._statusText = this.shadowRoot.getElementById('status-text');
     this._statusDot = this.shadowRoot.getElementById('status-dot');
     this._statusLabel = this.shadowRoot.getElementById('status-label');
@@ -183,23 +179,30 @@ class Unifi2WayAudio extends HTMLElement {
     this._muteButton.addEventListener('click', () => this.toggleMute());
     this._talkbackButton.addEventListener('click', () => this.toggleTalkback());
 
-    // this.updateCameraFeed();
     this.updateState();
+    this.updateCameraFeed();
   }
 
-  // updateCameraFeed() {
-  //   if (!this._hass || !this._config) return;
+  updateCameraFeed() {
+    if (!this._hass || !this._config) return;  
+    const container = this.shadowRoot.getElementById("camera-stream");
+    if (!container) return;
 
-  //   const cameraEntityId = this.getCameraEntityId();
-  //   const cameraImage = this.shadowRoot.querySelector('.camera-image');
-    
-  //   if (cameraImage && cameraEntityId) {
-  //     const cameraEntity = this._hass.states[cameraEntityId];
-  //     const token = this._hass.auth.data.access_token;
-  //     // /api/camera_proxy_stream/${entity.entity_id}?token=${entity.attributes.access_token} 
-  //     cameraImage.src = `/api/camera_proxy_stream/${cameraEntityId}?token=${entity.attributes.access_token}`;
-  //   }
-  // }
+    container.innerHTML = "";
+
+    const cameraEntityId = this.getCameraEntityId();
+    if (!cameraEntityId) return;
+
+    const stateObj = this._hass.states[cameraEntityId];
+    if (!stateObj) return;
+
+    const stream = document.createElement("ha-camera-stream");
+    stream.hass = this._hass;
+    stream.stateObj = stateObj;
+    stream.controls = true;
+
+    container.appendChild(stream);
+  }
 
   getCameraEntity() {
     return this._hass.states[this.getCameraEntityId()];
