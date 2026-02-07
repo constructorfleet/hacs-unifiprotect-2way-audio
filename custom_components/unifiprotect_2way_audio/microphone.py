@@ -46,21 +46,6 @@ async def async_setup_entry(
     else:
         _LOGGER.warning("No UniFi Protect microphone entities found")
 
-    # Register microphone domain services
-    platform = async_get_current_platform()
-
-    platform.async_register_entity_service(
-        "turn_on",
-        {},
-        "async_turn_on",
-    )
-
-    platform.async_register_entity_service(
-        "turn_off",
-        {},
-        "async_turn_off",
-    )
-
 
 class MicrophoneEntity(SwitchEntity):
     """Representation of a UniFi Protect 2-Way Audio microphone/talkback control.
@@ -86,7 +71,7 @@ class MicrophoneEntity(SwitchEntity):
         camera_name = camera_entity_id.split(".")[-1].replace("_", " ").title()
 
         self._attr_name = f"{camera_name} Talkback"
-        self._attr_unique_id = f"{camera_unique_id}_talkback_microphone"
+        self._attr_unique_id = f"{camera_unique_id}_talkback"
         self._attr_icon = "mdi:microphone"
         
         # State tracking
@@ -110,7 +95,7 @@ class MicrophoneEntity(SwitchEntity):
             "session_state": self._session_state,
             "last_error": self._last_error,
             "target_camera": self._camera_entity_id,
-            "protect_device_id": self._camera_unique_id,
+            "camera_unique_id": self._camera_unique_id,
             "transport": self._transport,
         }
 
