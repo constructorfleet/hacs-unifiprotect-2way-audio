@@ -13,6 +13,7 @@ class Unifi2WayAudio extends HTMLElement {
     this._config = null;
     this._isTalkbackActive = false;
     this._isMuted = false;
+    this._lastCameraId = null;
   }
 
   setConfig(config) {
@@ -191,8 +192,9 @@ class Unifi2WayAudio extends HTMLElement {
     container.innerHTML = "";
 
     const cameraEntityId = this.getCameraEntityId();
-    if (!cameraEntityId) return;
+    if (!cameraEntityId || cameraEntityId === this._lastCameraId) return;
 
+    this._lastCameraId = cameraEntityId;
     const stateObj = this._hass.states[cameraEntityId];
     if (!stateObj) return;
 
