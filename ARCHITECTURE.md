@@ -9,7 +9,6 @@ hacs-unifiprotect-2way-audio/
 │   ├── config_flow.py                            # UI configuration flow
 │   ├── const.py                                  # Constants and configuration
 │   ├── manifest.json                             # Integration metadata
-│   ├── microphone.py                             # Microphone platform (receives audio)
 │   ├── switch.py                                 # Switch platform (talkback control)
 │   ├── services.yaml                             # Service definitions
 │   ├── strings.json                              # UI translations (modern)
@@ -42,8 +41,7 @@ Settings → Devices & Services → Add Integration → UniFi Protect 2-Way Audi
 
 ### 3. Entity Creation
 ```
-Integration Setup → Piggyback on UniFi Protect Integration → Create Entities per Camera
-  ├── Microphone Entity (receives audio from browser)
+Integration Setup → Piggyback on UniFi Protect Integration → Create Switch Entity per Camera
   └── Switch Entity (talkback control)
 ```
 
@@ -57,21 +55,19 @@ Add Resource → Add Card to Dashboard → Configure Entity
 ## Entity Architecture
 
 ### Device Structure
-This integration **piggybacks on the existing UniFi Protect integration** and adds **two entities** per camera with talkback capability:
+This integration **piggybacks on the existing UniFi Protect integration** and adds **one switch entity** per camera with talkback capability:
 
 ```
 Device: Front Door Camera (from UniFi Protect integration)
 ├── camera.front_door (from UniFi Protect)
 │   └── Video streaming and controls
-├── microphone.front_door_talkback (from this integration)
-│   └── Receives audio data from browser
 └── switch.front_door_talkback (from this integration)
     └── Controls talkback on/off state
 ```
 
 This architecture ensures:
 - **No device duplication**: Uses existing UniFi Protect device
-- **Logical grouping**: Talkback entities grouped with camera device
+- **Logical grouping**: Talkback switch entity grouped with camera device
 - **Simple control**: One switch entity to control talkback
 - **Clean integration**: Extends existing functionality without replacing it
 
@@ -84,11 +80,10 @@ This architecture ensures:
 3. Browser requests microphone access
 4. MediaRecorder captures audio stream
 5. Audio encoded to WebM/Opus format
-6. Audio chunks sent to microphone entity
-7. Microphone entity processes and forwards to switch entity
-8. Switch entity streams audio to UniFi Protect camera via backchannel
-9. Camera plays audio through speaker
-10. User turns off switch to end talkback
+6. Audio chunks sent to switch entity via services/events
+7. Switch entity processes and streams audio to UniFi Protect camera via backchannel
+8. Camera plays audio through speaker
+9. User turns off switch to end talkback
 ```
 
 ### Switch Control Flow
@@ -106,25 +101,16 @@ This architecture ensures:
 
 ## Key Components
 
-### Microphone Entity (`microphone.py`)
-- **Purpose**: Receives audio data from browser for transmission to camera
-- **Features**:
-  - Accepts audio streams from browser (WebM/Opus format)
-  - Processes and decodes audio data
-  - Buffers audio for transmission
-  - Works in conjunction with switch entity
-  - Discovers cameras from UniFi Protect integration
-  - Groups with camera device from UniFi Protect
-
 ### Switch Entity (`switch.py`)
 - **Purpose**: Controls talkback backchannel on/off state
 - **Features**:
   - Simple on/off control for talkback
   - Opens/closes backchannel connection to camera
   - Manages audio streaming pipeline
-  - Receives processed audio from microphone entity
+  - Receives and processes audio data from browser
   - Streams audio to camera via uiprotect library backchannel
   - Shows active state when talkback is in use
+  - Discovers cameras from UniFi Protect integration
   - Groups with camera device from UniFi Protect
 
 ### Lovelace Card (`unifiprotect-2way-audio-card.js`)
@@ -136,7 +122,7 @@ This architecture ensures:
   - Push-to-talk button integration
   - Status indicators
   - Real-time state updates
-  - Streams audio to microphone entity when switch is on
+  - Streams audio via switch entity when talkback is on
 
 ### Config Flow (`config_flow.py`)
 - **Purpose**: UI-based integration setup
@@ -178,16 +164,16 @@ This architecture ensures:
 entity_registry = er.async_get(hass)
 for entity in entity_registry.entities.values():
     if entity.platform == "unifiprotect" and "camera" in entity.entity_id:
-        # Create microphone and switch entities for this camera
+        # Create switch entity for this camera
         # Attach to existing UniFi Protect device
 ```
 
-**Important**: This integration does not create its own devices or camera entities. It extends the existing UniFi Protect integration by adding talkback functionality through microphone and switch entities.
+**Important**: This integration does not create its own devices or camera entities. It extends the existing UniFi Protect integration by adding talkback functionality through a switch entity.
 
 ### With Home Assistant Core
 ```python
-# Register microphone and switch platforms
-PLATFORMS: list[Platform] = [Platform.MICROPHONE, Platform.SWITCH]
+# Register switch platform
+PLATFORMS: list[str] = ["switch"]
 
 # Use config entry setup
 await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -213,7 +199,7 @@ await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 - **Parameters**: None
 - **Purpose**: Toggles talkback on/off
 
-**Note**: The integration uses standard Home Assistant switch services. The microphone entity automatically handles audio streaming when the switch is turned on.
+**Note**: The integration uses standard Home Assistant switch services. The switch entity handles all audio streaming when it is turned on.
 
 ## Security Considerations
 

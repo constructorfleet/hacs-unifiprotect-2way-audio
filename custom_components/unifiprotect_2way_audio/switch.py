@@ -1,4 +1,4 @@
-"""Microphone platform for UniFi Protect 2-Way Audio backchannel control."""
+"""Switch platform for UniFi Protect 2-Way Audio backchannel control."""
 from __future__ import annotations
 
 import asyncio
@@ -31,24 +31,24 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up UniFi Protect 2-Way Audio microphone platform."""
-    _LOGGER.info("Setting up UniFi Protect 2-Way Audio microphone platform")
+    """Set up UniFi Protect 2-Way Audio switch platform."""
+    _LOGGER.info("Setting up UniFi Protect 2-Way Audio switch platform")
 
     # Get the manager from hass.data
     manager = hass.data[DOMAIN][config_entry.entry_id]["manager"]
 
     # Get entities from manager
-    entities = [device.microphone for device in manager.get_devices() if device.microphone]
+    entities = [device.switch for device in manager.get_devices() if device.switch]
 
     if entities:
         async_add_entities(entities)
-        _LOGGER.info("Added %d UniFi Protect microphone entities", len(entities))
+        _LOGGER.info("Added %d UniFi Protect switch entities", len(entities))
     else:
-        _LOGGER.warning("No UniFi Protect microphone entities found")
+        _LOGGER.warning("No UniFi Protect switch entities found")
 
 
-class MicrophoneEntity(SwitchEntity):
-    """Representation of a UniFi Protect 2-Way Audio microphone/talkback control.
+class TalkbackSwitch(SwitchEntity):
+    """Representation of a UniFi Protect 2-Way Audio talkback control switch.
     
     This entity represents the audio backchannel transmit state for a UniFi Protect camera.
     When turned on, it starts the 2-way audio backchannel session. When turned off, it stops it.
@@ -62,7 +62,7 @@ class MicrophoneEntity(SwitchEntity):
         device_info: DeviceInfo,
         media_player_id: str | None,
     ) -> None:
-        """Initialize the microphone entity."""
+        """Initialize the talkback switch entity."""
         self.hass = hass
         self._camera_entity_id = camera_entity_id
         self._camera_unique_id = camera_unique_id
@@ -93,12 +93,7 @@ class MicrophoneEntity(SwitchEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes for diagnostics."""
-        if self._media_player_id:
-            attrs = {
-                "target_media_player": self.media_player_id
-            }
-        else:
-            attrs = {}
+        attrs = {"target_media_player": self._media_player_id} if self._media_player_id else {}
         return {
             **attrs,
             "session_state": self._session_state,
@@ -109,7 +104,7 @@ class MicrophoneEntity(SwitchEntity):
         }
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        """Turn on the microphone (start backchannel session)."""
+        """Turn on the switch (start backchannel session)."""
         _LOGGER.info("Starting backchannel for %s", self._camera_entity_id)
         
         if self._is_on:
@@ -140,7 +135,7 @@ class MicrophoneEntity(SwitchEntity):
             raise
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        """Turn off the microphone (stop backchannel session)."""
+        """Turn off the switch (stop backchannel session)."""
         _LOGGER.info("Stopping backchannel for %s", self._camera_entity_id)
         
         if not self._is_on:
@@ -240,6 +235,6 @@ class MicrophoneEntity(SwitchEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up when entity is removed."""
-        _LOGGER.debug("Cleaning up microphone entity for %s", self._camera_entity_id)
+        _LOGGER.debug("Cleaning up talkback switch entity for %s", self._camera_entity_id)
         if self._is_on:
             await self._stop_backchannel()

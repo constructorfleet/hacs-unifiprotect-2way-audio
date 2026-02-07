@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er, device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 
 if TYPE_CHECKING:
-    from .microphone import MicrophoneEntity
+    from .switch import TalkbackSwitch
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,16 +21,16 @@ from .const import DOMAIN
 
 
 class Unifi2WayAudioDevice:
-    """Class for holding microphone entity associated with a UniFi Protect device."""
+    """Class for holding switch entity associated with a UniFi Protect device."""
 
     def __init__(
         self,
-        microphone: MicrophoneEntity,
+        switch: TalkbackSwitch,
         camera_id: str,
         media_player_id: str | None,
     ) -> None:
         """Initialize the 2-way audio device."""
-        self.microphone = microphone
+        self.switch = switch
         self.camera_id = camera_id
         self.media_player_id = media_player_id
 
@@ -44,8 +44,8 @@ class StreamConfigManager:
         self._hass = hass
 
     def build_entities(self, hass: HomeAssistant) -> None:
-        """Build microphone entities from unifiprotect integration."""
-        from .microphone import MicrophoneEntity
+        """Build switch entities from unifiprotect integration."""
+        from .switch import TalkbackSwitch
 
         entity_registry = er.async_get(hass)
         device_registry = dr.async_get(hass)
@@ -81,24 +81,24 @@ class StreamConfigManager:
             camera_entity = [e for e in entities if e.domain == "camera"][0]
             media_player_entities = [e for e in entities if e.domain == "media_player"]
 
-            # Create microphone entity for talkback control
-            microphone = MicrophoneEntity(
+            # Create switch entity for talkback control
+            switch = TalkbackSwitch(
                 hass,
                 camera_entity.entity_id,
                 camera_entity.unique_id,
                 device_info,
-                None if len(media_player_entities) == 0 else media_player_entities[0].entity_id
+                None if not media_player_entities else media_player_entities[0].entity_id
             )
             _LOGGER.debug(
-                "Created microphone entity for camera: %s",
+                "Created switch entity for camera: %s",
                 camera_entity.entity_id,
             )
 
             # Store the device
             self._devices[camera_entity.unique_id] = Unifi2WayAudioDevice(
-                microphone,
+                switch,
                 camera_entity.entity_id,
-                None if len(media_player_entities) == 0 else media_player_entities[0].entity_id
+                None if not media_player_entities else media_player_entities[0].entity_id
             )
 
     def get_devices(self) -> list[Unifi2WayAudioDevice]:
