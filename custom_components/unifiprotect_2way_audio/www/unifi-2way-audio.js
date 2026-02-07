@@ -320,18 +320,31 @@ class Unifi2WayAudio extends HTMLElement {
       
       // Provide more specific error messages
       let errorMessage = 'Microphone access denied';
+      let detailedLog = null;
+      
       if (error.name === 'NotAllowedError') {
-        // Check if it's a permissions policy issue
-        if (error.message && error.message.includes('policy')) {
+        // Check if it's a permissions policy issue by examining the error message
+        const errorMsg = error.message ? error.message.toLowerCase() : '';
+        if (errorMsg.includes('policy') || errorMsg.includes('permission') && errorMsg.includes('denied')) {
           errorMessage = 'Permissions policy blocks microphone. Check docs.';
-          console.error('Permissions Policy Violation: Your reverse proxy needs to set "Permissions-Policy: microphone=(self)" header. See README for instructions.');
+          detailedLog = 'Permissions Policy Violation: Your reverse proxy needs to set "Permissions-Policy: microphone=(self)" header. See README for instructions.';
         } else {
           errorMessage = 'Microphone permission denied';
+          detailedLog = 'User denied microphone access or browser blocked the request. Check browser permissions.';
         }
       } else if (error.name === 'NotFoundError') {
         errorMessage = 'No microphone found';
+        detailedLog = 'No microphone device detected on this system.';
       } else if (error.name === 'NotReadableError') {
         errorMessage = 'Microphone already in use';
+        detailedLog = 'Microphone is being used by another application or tab.';
+      } else if (error.name === 'SecurityError') {
+        errorMessage = 'Security error - check HTTPS';
+        detailedLog = 'Security error accessing microphone. Ensure you are using HTTPS.';
+      }
+      
+      if (detailedLog) {
+        console.error(detailedLog);
       }
       
       this._statusText.textContent = errorMessage;
