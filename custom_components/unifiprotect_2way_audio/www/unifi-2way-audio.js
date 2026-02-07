@@ -16,9 +16,8 @@ class Unifi2WayAudio extends HTMLElement {
   }
 
   setConfig(config) {
-    // Support both device and entity configuration
-    if (!config.device && !config.entity) {
-      throw new Error('You need to define either a device or entity');
+    if (!config.device) {
+      throw new Error('You need to define a device');
     }
     this._config = config;
     this.render();
@@ -196,85 +195,49 @@ class Unifi2WayAudio extends HTMLElement {
   }
 
   getCameraEntityId() {
-    // If device is configured, find the camera entity for that device
-    if (this._config.device && this._hass) {
-      const deviceEntities = Object.keys(this._hass.states).filter(entityId => {
-        const entity = this._hass.states[entityId];
-        return entity && entity.attributes.device_id === this._config.device && entityId.startsWith('camera.');
-      });
-      
-      // Return the first camera entity for the device (UniFi Protect cameras have one)
-      if (deviceEntities.length > 0) {
-        return deviceEntities[0];
-      }
+    // Find the camera entity for the configured device
+    if (!this._config.device || !this._hass) {
+      return null;
     }
     
-    // Fallback to configured camera_entity or entity
-    return this._config.camera_entity || this._config.entity;
+    const deviceEntities = Object.keys(this._hass.states).filter(entityId => {
+      const entity = this._hass.states[entityId];
+      return entity && entity.attributes.device_id === this._config.device && entityId.startsWith('camera.');
+    });
+    
+    // Return the first camera entity for the device (UniFi Protect cameras have one)
+    return deviceEntities.length > 0 ? deviceEntities[0] : null;
   }
 
   getSwitchEntityId() {
-    // If device is configured, find the switch entity for that device
-    if (this._config.device && this._hass) {
-      const deviceEntities = Object.keys(this._hass.states).filter(entityId => {
-        const entity = this._hass.states[entityId];
-        return entity && entity.attributes.device_id === this._config.device && entityId.startsWith('switch.');
-      });
-      
-      // Find the talkback switch (should contain "talkback" in the entity_id)
-      const talkbackSwitch = deviceEntities.find(id => id.includes('talkback'));
-      if (talkbackSwitch) {
-        return talkbackSwitch;
-      }
-      
-      // Fallback to first switch entity for the device
-      if (deviceEntities.length > 0) {
-        return deviceEntities[0];
-      }
+    // Find the switch entity for the configured device
+    if (!this._config.device || !this._hass) {
+      return null;
     }
     
-    // Fallback: try to find from config or derive from entity
-    if (this._config.switch_entity) {
-      return this._config.switch_entity;
-    }
+    const deviceEntities = Object.keys(this._hass.states).filter(entityId => {
+      const entity = this._hass.states[entityId];
+      return entity && entity.attributes.device_id === this._config.device && entityId.startsWith('switch.');
+    });
     
-    if (this._config.entity) {
-      return this._config.entity.replace('media_player.', 'switch.').replace('_2way_audio', '_talkback_switch');
-    }
-    
-    return null;
+    // Return the first switch entity for the device (our integration creates one talkback switch per camera)
+    return deviceEntities.length > 0 ? deviceEntities[0] : null;
   }
 
   getMediaPlayerEntityId() {
-    // If device is configured, find the media_player entity for that device
-    // This should be the UniFi Protect media_player, not our custom one
-    if (this._config.device && this._hass) {
-      const deviceEntities = Object.keys(this._hass.states).filter(entityId => {
-        const entity = this._hass.states[entityId];
-        return entity && entity.attributes.device_id === this._config.device && entityId.startsWith('media_player.');
-      });
-      
-      // Find the UniFi Protect media_player (typically just the camera name without suffixes)
-      // Avoid our custom _2way_audio media_players if they exist
-      const unifiProtectPlayer = deviceEntities.find(id => 
-        !id.includes('_2way_audio') && !id.includes('talkback')
-      );
-      if (unifiProtectPlayer) {
-        return unifiProtectPlayer;
-      }
-      
-      // Fallback to first media_player entity for the device
-      if (deviceEntities.length > 0) {
-        return deviceEntities[0];
-      }
+    // Find the media_player entity for the configured device
+    // This should be the UniFi Protect media_player (for cameras with speakers)
+    if (!this._config.device || !this._hass) {
+      return null;
     }
     
-    // Fallback to configured media_player_entity
-    if (this._config.media_player_entity) {
-      return this._config.media_player_entity;
-    }
+    const deviceEntities = Object.keys(this._hass.states).filter(entityId => {
+      const entity = this._hass.states[entityId];
+      return entity && entity.attributes.device_id === this._config.device && entityId.startsWith('media_player.');
+    });
     
-    return null;
+    // Return the first media_player entity for the device (UniFi Protect creates one per camera with speaker)
+    return deviceEntities.length > 0 ? deviceEntities[0] : null;
   }
 
   updateState() {
@@ -425,8 +388,8 @@ class Unifi2WayAudio extends HTMLElement {
         return undefined;
       },
       assertConfig: (config) => {
-        if (!config.device && !config.entity) {
-          throw new Error("Either 'device' or 'entity' must be specified.");
+        if (!config.device) {
+          throw new Error("'device' must be specified.");
         }
       },
     };
