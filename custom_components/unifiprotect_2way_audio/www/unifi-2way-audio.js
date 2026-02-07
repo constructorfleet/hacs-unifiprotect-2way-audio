@@ -201,7 +201,7 @@ class Unifi2WayAudio extends HTMLElement {
     }
     
     const switchEntity = this._hass.states[this._config.entity];
-    if (!switchEntity || !switchEntity.attributes.target_camera) {
+    if (!switchEntity || !switchEntity.attributes || !switchEntity.attributes.target_camera) {
       return null;
     }
     
@@ -224,7 +224,7 @@ class Unifi2WayAudio extends HTMLElement {
     }
     
     const switchEntity = this._hass.states[this._config.entity];
-    if (!switchEntity || !switchEntity.attributes.target_media_player) {
+    if (!switchEntity || !switchEntity.attributes || !switchEntity.attributes.target_media_player) {
       return null;
     }
     
