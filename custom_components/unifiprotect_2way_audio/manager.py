@@ -26,9 +26,13 @@ class Unifi2WayAudioDevice:
     def __init__(
         self,
         microphone: MicrophoneEntity,
+        camera_id: str,
+        media_player_id: str | None,
     ) -> None:
         """Initialize the 2-way audio device."""
         self.microphone = microphone
+        self.camera_id = camera_id
+        self.media_player_id = media_player_id
 
 
 class StreamConfigManager:
@@ -45,24 +49,24 @@ class StreamConfigManager:
 
         entity_registry = er.async_get(hass)
         device_registry = dr.async_get(hass)
-        unifi_cameras = [
+        unifi_entities = [
             entity
             for entity
             in entity_registry.entities.values()
             if entity.platform == "unifiprotect" \
-                and entity.domain == "camera" \
                 and not entity.disabled \
-                and not entity.hidden
+                and not entity.hidden \
+                and entity.domain in ("camera", "media_player")
         ]
 
-        # Group cameras by device_id
-        cameras_by_device = {}
-        for camera in unifi_cameras:
-            if camera.device_id not in cameras_by_device:
-                cameras_by_device[camera.device_id] = []
-            cameras_by_device[camera.device_id].append(camera)
+        # Group entities by device_id
+        entities_by_device = {}
+        for entity in unifi_entities:
+            if entity.device_id not in entities_by_device:
+                entities_by_device[entity.device_id] = []
+            entities_by_device[entity.device_id].append(entity)
 
-        for device_id, cameras in cameras_by_device.items():
+        for device_id, entities in entities_by_device.items():
             unifi_device = device_registry.async_get(device_id)
             if not unifi_device:
                 _LOGGER.warning("Device %s not found in registry", device_id)
@@ -74,11 +78,14 @@ class StreamConfigManager:
                 connections=unifi_device.connections,
             )
 
+            camera_entity = [e for e in entities if e.domin == "camera"][0]
+            media_player_entities = [e for e in entities if e.domain == "media_player"]
+
             # Create microphone entity for talkback control
             microphone = MicrophoneEntity(
                 hass,
-                cameras[0].entity_id,
-                cameras[0].unique_id,
+                camera_entity.entity_id,
+                camera_entity.unique_id,
                 device_info,
             )
             _LOGGER.debug(
@@ -87,7 +94,11 @@ class StreamConfigManager:
             )
 
             # Store the device
-            self._devices[cameras[0].unique_id] = Unifi2WayAudioDevice(microphone)
+            self._devices[cameras[0].unique_id] = Unifi2WayAudioDevice(
+                microphone,
+                camera_entity.entity_id,
+                None if len(media_player_entities) == 0 else media_player_entities[0].entity_id
+            )
 
     def get_devices(self) -> list[Unifi2WayAudioDevice]:
         """Get all devices."""

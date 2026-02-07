@@ -60,11 +60,13 @@ class MicrophoneEntity(SwitchEntity):
         camera_entity_id: str,
         camera_unique_id: str,
         device_info: DeviceInfo,
+        media_player_id: str | None,
     ) -> None:
         """Initialize the microphone entity."""
         self.hass = hass
         self._camera_entity_id = camera_entity_id
         self._camera_unique_id = camera_unique_id
+        self._media_player_id = media_player_id
         self._attr_device_info = device_info
 
         # Extract camera name from entity_id
@@ -91,7 +93,14 @@ class MicrophoneEntity(SwitchEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes for diagnostics."""
+        if self._media_player_id:
+            attrs = {
+                "target_media_player": self.media_player_id
+            }
+        else:
+            attrs = {}
         return {
+            **attrs,
             "session_state": self._session_state,
             "last_error": self._last_error,
             "target_camera": self._camera_entity_id,
