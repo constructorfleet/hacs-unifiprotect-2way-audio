@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .camera import UniFiProtectProxyCamera
     from .media_player import UniFiProtect2WayAudioPlayer
     from .select import UniFiProtectStreamResolutionSelect, UniFiProtectStreamSecuritySelect
+    from .switch import UniFiProtectTalkbackSwitch
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,12 +32,14 @@ class Unifi2WayAudioDevice:
         media_player: UniFiProtect2WayAudioPlayer,
         security_select: UniFiProtectStreamSecuritySelect | None,
         resolution_select: UniFiProtectStreamResolutionSelect | None,
+        talkback_switch: UniFiProtectTalkbackSwitch | None,
     ) -> None:
         """Initialize the 2-way audio device."""
         self.camera = camera
         self.media_player = media_player
         self.security_select = security_select
         self.resolution_select = resolution_select
+        self.talkback_switch = talkback_switch
 
 
 class StreamConfigManager:
@@ -52,6 +55,7 @@ class StreamConfigManager:
         from .camera import UniFiProtectProxyCamera
         from .media_player import UniFiProtect2WayAudioPlayer
         from .select import UniFiProtectStreamResolutionSelect, UniFiProtectStreamSecuritySelect
+        from .switch import UniFiProtectTalkbackSwitch
 
         entity_registry = er.async_get(hass)
         device_registry = dr.async_get(hass)
@@ -142,12 +146,31 @@ class StreamConfigManager:
                     resolution_options,
                 )
 
+            # Create talkback switch
+            # Generate media_player entity_id from camera entity_id
+            media_player_entity_id = f"media_player.{cameras[0].entity_id.split('.')[-1]}_2way_audio"
+            talkback_switch = UniFiProtectTalkbackSwitch(
+                hass,
+                cameras[0].entity_id,
+                cameras[0].unique_id,
+                media_player_entity_id,
+                device_info,
+            )
+            _LOGGER.debug(
+                "Created talkback switch for camera: %s",
+                cameras[0].entity_id,
+            )
+
+            # Link media player and switch
+            media_player.set_talkback_switch(talkback_switch)
+
             # Store the device
             self._devices[cameras[0].unique_id] = Unifi2WayAudioDevice(
                 camera,
                 media_player,
                 security_select,
-                resolution_select
+                resolution_select,
+                talkback_switch
             )
 
     def get_devices(self) -> list[Unifi2WayAudioDevice]:

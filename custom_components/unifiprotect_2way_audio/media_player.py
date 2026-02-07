@@ -105,6 +105,7 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
         self._is_muted = False
         self._is_talkback_active = False
         self._talkback_task: asyncio.Task | None = None
+        self._talkback_switch = None  # Will be set by manager
 
     @property
     def supported_features(self) -> MediaPlayerEntityFeature:
@@ -175,6 +176,10 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
             except Exception as err:
                 _LOGGER.error("Failed to decode audio data: %s", err)
 
+        # Update switch state if linked
+        if self._talkback_switch:
+            self._talkback_switch.set_state(True)
+
         self.async_write_ha_state()
 
     async def async_stop_talkback(self) -> None:
@@ -193,6 +198,10 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
                 await self._talkback_task
             except asyncio.CancelledError:
                 pass
+
+        # Update switch state if linked
+        if self._talkback_switch:
+            self._talkback_switch.set_state(False)
 
         self.async_write_ha_state()
 
@@ -217,3 +226,7 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
     async def async_turn_off(self) -> None:
         """Turn off (stop talkback)."""
         await self.async_stop_talkback()
+
+    def set_talkback_switch(self, switch) -> None:
+        """Set the linked talkback switch."""
+        self._talkback_switch = switch
