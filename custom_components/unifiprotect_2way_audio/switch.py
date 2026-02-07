@@ -95,7 +95,7 @@ class TalkbackSwitch(SwitchEntity):
         """Return additional state attributes for diagnostics."""
         if self._media_player_id:
             attrs = {
-                "target_media_player": self.media_player_id
+                "target_media_player": self._media_player_id
             }
         else:
             attrs = {}
