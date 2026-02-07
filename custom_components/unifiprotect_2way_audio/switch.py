@@ -81,7 +81,7 @@ class UniFiProtectTalkbackSwitch(SwitchEntity):
             )
             self._is_on = True
             self.async_write_ha_state()
-        except Exception as err:
+        except (ValueError, RuntimeError) as err:
             _LOGGER.error("Failed to start talkback: %s", err)
             raise
 
@@ -99,7 +99,7 @@ class UniFiProtectTalkbackSwitch(SwitchEntity):
             )
             self._is_on = False
             self.async_write_ha_state()
-        except Exception as err:
+        except (ValueError, RuntimeError) as err:
             _LOGGER.error("Failed to stop talkback: %s", err)
             raise
 

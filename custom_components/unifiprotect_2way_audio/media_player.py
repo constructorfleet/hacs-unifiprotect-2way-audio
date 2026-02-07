@@ -227,6 +227,6 @@ class UniFiProtect2WayAudioPlayer(MediaPlayerEntity):
         """Turn off (stop talkback)."""
         await self.async_stop_talkback()
 
-    def set_talkback_switch(self, switch) -> None:
+    def set_talkback_switch(self, switch: "UniFiProtectTalkbackSwitch | None") -> None:
         """Set the linked talkback switch."""
         self._talkback_switch = switch
