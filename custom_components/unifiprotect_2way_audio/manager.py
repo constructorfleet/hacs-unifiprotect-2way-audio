@@ -91,11 +91,11 @@ class StreamConfigManager:
             )
             _LOGGER.debug(
                 "Created microphone entity for camera: %s",
-                camera_entity[0].entity_id,
+                camera_entity.entity_id,
             )
 
             # Store the device
-            self._devices[camera_entity[0].unique_id] = Unifi2WayAudioDevice(
+            self._devices[camera_entity.unique_id] = Unifi2WayAudioDevice(
                 microphone,
                 camera_entity.entity_id,
                 None if len(media_player_entities) == 0 else media_player_entities[0].entity_id
