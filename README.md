@@ -237,7 +237,7 @@ Add this to your VirtualHost configuration:
     ProxyPass http://homeassistant:8123/
     ProxyPassReverse http://homeassistant:8123/
     
-    Header set Permissions-Policy "microphone=(self)"
+    Header always set Permissions-Policy "microphone=(self)"
 </Location>
 ```
 
