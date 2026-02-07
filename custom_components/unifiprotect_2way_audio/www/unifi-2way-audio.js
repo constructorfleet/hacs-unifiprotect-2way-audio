@@ -367,15 +367,17 @@ class Unifi2WayAudio extends HTMLElement {
 // Register the custom card
 customElements.define('unifi-2way-audio', Unifi2WayAudio);
 
-// Register card for card picker
-window.customCards = window.customCards || [];
-window.customCards.push({
+const card = {
   type: 'unifi-2way-audio',
   name: 'UniFi Protect 2-Way Audio Card',
   description: 'A card for 2-way audio control of UniFi Protect cameras',
   preview: false,
   documentationURL: 'https://github.com/constructorfleet/hacs-unifiprotect-2way-audio',
-});
+};
+
+// Apple iOS 12 doesn't support `||=`
+if (window.customCards) window.customCards.push(card);
+else window.customCards = [card];
 
 console.info(
   '%c  UNIFIPROTECT-2WAY-AUDIO-CARD  %c  1.0.0  ',

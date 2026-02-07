@@ -31,8 +31,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         path = Path(__file__).parent / "www"
         await register_static_path(
             hass,
-            "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
-            str(path / "unifiprotect-2way-audio-card.js")
+            "/unifiprotect_2way_audio/unifi-2way-audio.js",
+            str(path / "unifi-2way-audio.js")
         )
 
         # Get version from integration metadata
@@ -43,7 +43,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         # Add card to resources
         await init_resource(
             hass,
-            "/unifiprotect_2way_audio/unifiprotect-2way-audio-card.js",
+            "/unifiprotect_2way_audio/unifi-2way-audio.js",
             str(version)
         )
         _LOGGER.info(
