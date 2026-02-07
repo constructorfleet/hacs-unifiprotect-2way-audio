@@ -325,13 +325,15 @@ After making changes, verify the header is set correctly:
 ### Using curl
 
 ```bash
-curl -I https://homeassistant.example.com | grep -i permissions-policy
+curl -I https://homeassistant.example.com 2>&1 | grep -i permissions-policy
 ```
 
 You should see:
 ```
 Permissions-Policy: microphone=(self)
 ```
+
+If you see no output, the header is not set. Check your reverse proxy configuration.
 
 ---
 
