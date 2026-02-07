@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er, device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 
 if TYPE_CHECKING:
-    from .switch import MicrophoneEntity
+    from .microphone import MicrophoneEntity
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ class StreamConfigManager:
 
     def build_entities(self, hass: HomeAssistant) -> None:
         """Build microphone entities from unifiprotect integration."""
-        from .switch import MicrophoneEntity
+        from .microphone import MicrophoneEntity
 
         entity_registry = er.async_get(hass)
         device_registry = dr.async_get(hass)
