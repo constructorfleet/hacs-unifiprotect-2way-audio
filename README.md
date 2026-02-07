@@ -11,7 +11,8 @@ A HACS-installable Home Assistant custom component that adds 2-way audio support
 - 🎛️ **Stream Configuration**: Select entities to configure stream security and resolution
 - 🎤 **2-Way Audio Support**: Talk to your UniFi Protect cameras directly from Home Assistant
 - 🔇 **Mute Control**: Toggle microphone mute state
-- 🎛️ **Push-to-Talk**: Hold button to talk, release to stop
+- 🔘 **Toggle Talkback**: Click once to turn on, click again to turn off
+- 🔄 **TalkBack Switch**: Dedicated switch entity for automation and control
 - 🌐 **Browser Audio**: Uses browser/companion app microphone
 - 📱 **Touch Support**: Works on mobile devices
 - 🏠 **HACS Compatible**: Easy installation through HACS
@@ -73,7 +74,12 @@ For each UniFi Protect camera, the integration creates **one device** with the f
 
 4. **2-Way Audio Media Player** (`media_player.camera_name_2way_audio`)
    - Provides talkback functionality
-   - Used by the Lovelace card for push-to-talk
+   - Used internally by the integration
+
+5. **TalkBack Switch** (`switch.camera_name_talkback_switch`)
+   - Toggle switch for talkback functionality
+   - Turn ON to start talkback, OFF to stop talkback
+   - Automatically reflects talkback state in the Lovelace card
 
 All entities are grouped under a single device for easy management.
 
@@ -113,10 +119,20 @@ camera_entity: camera.front_door
   - Click to mute or unmute your microphone
   - Orange color indicates muted state
   
-- **Talkback Button** (right): Push to talk
-  - Press and hold to start talking
-  - Release to stop talking
-  - Red pulsing indicates active recording
+- **Talkback Button** (right): Toggle talkback
+  - Click once to turn on talkback (starts 2-way audio)
+  - Click again to turn off talkback (stops 2-way audio)
+  - Accent color with pulsing animation indicates active talkback
+  - Button state automatically syncs with the TalkBack switch entity
+
+### TalkBack Switch
+
+The integration creates a switch entity (`switch.camera_name_talkback_switch`) for each camera:
+
+- **Turn ON**: Starts 2-way audio talkback
+- **Turn OFF**: Stops 2-way audio talkback
+- **Auto-sync**: The Lovelace card automatically reflects the switch state
+- **Automations**: Use the switch in automations for advanced control
 
 ### Services
 

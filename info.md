@@ -8,7 +8,9 @@ Add 2-way audio support to your UniFi Protect cameras with microphone and speake
 
 🔇 **Mute Control** - Toggle microphone mute state
 
-🎛️ **Push-to-Talk** - Hold button to talk, release to stop
+🔘 **Toggle Talkback** - Click once to turn on, click again to turn off
+
+🔄 **TalkBack Switch** - Dedicated switch entity for automation and control
 
 📹 **Camera Overlay** - Controls overlay directly on camera feed
 
