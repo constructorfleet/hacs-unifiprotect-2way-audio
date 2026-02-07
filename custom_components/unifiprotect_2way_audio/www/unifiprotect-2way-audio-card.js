@@ -5,7 +5,7 @@
  * for UniFi Protect cameras with microphone and speaker capabilities.
  */
 
-class UniFiProtect2WayAudioCard extends HTMLElement {
+class Unifi2WayAudio extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -39,8 +39,6 @@ class UniFiProtect2WayAudioCard extends HTMLElement {
     if (!this._config) {
       return;
     }
-
-    const cameraEntity = this._config.camera_entity || this._config.entity.replace('media_player.', 'camera.');
     
     this.shadowRoot.innerHTML = `
       <style>
@@ -367,12 +365,12 @@ class UniFiProtect2WayAudioCard extends HTMLElement {
 }
 
 // Register the custom card
-customElements.define('unifiprotect-2way-audio-card', UniFiProtect2WayAudioCard);
+customElements.define('unifi-2way-audio', Unifi2WayAudio);
 
 // Register card for card picker
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: 'unifiprotect-2way-audio-card',
+  type: 'unifi-2way-audio',
   name: 'UniFi Protect 2-Way Audio Card',
   description: 'A card for 2-way audio control of UniFi Protect cameras',
   preview: false,
