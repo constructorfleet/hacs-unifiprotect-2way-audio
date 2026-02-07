@@ -10,13 +10,16 @@ _LOGGER = logging.getLogger(__name__)
 
 async def register_static_path(hass: HomeAssistant, url_path: str, path: str):
     """Register a static path for serving files."""
+    # Home Assistant 2024.7 introduced StaticPathConfig for async path registration
     if (MAJOR_VERSION, MINOR_VERSION) >= (2024, 7):
         from homeassistant.components.http import StaticPathConfig
 
+        # Third parameter (True) enables cache headers for better performance
         await hass.http.async_register_static_paths(
             [StaticPathConfig(url_path, path, True)]
         )
     else:
+        # Fallback for older versions - synchronous registration without cache headers
         hass.http.register_static_path(url_path, path)
 
 
@@ -32,9 +35,14 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
             _LOGGER.warning("Lovelace not available")
             return False
 
-        resources: ResourceStorageCollection = (
-            lovelace.resources if hasattr(lovelace, "resources") else lovelace.get("resources")
-        )
+        # Try to get resources from lovelace object
+        if hasattr(lovelace, "resources"):
+            resources: ResourceStorageCollection = lovelace.resources
+        elif isinstance(lovelace, dict):
+            resources: ResourceStorageCollection = lovelace.get("resources")
+        else:
+            _LOGGER.warning("Lovelace resources not accessible")
+            return False
 
         if not resources:
             _LOGGER.warning("Lovelace resources not available")
@@ -46,15 +54,19 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
         url2 = f"{url}?v={ver}"
 
         for item in resources.async_items():
+            # Ensure item is a dictionary-like object
+            if not isinstance(item, dict):
+                continue
+
             if not item.get("url", "").startswith(url):
                 continue
 
             # no need to update
             if item["url"].endswith(ver):
-                _LOGGER.debug(f"Resource already at version {ver}")
+                _LOGGER.debug("Resource already at version %s", ver)
                 return False
 
-            _LOGGER.debug(f"Update lovelace resource to: {url2}")
+            _LOGGER.debug("Update lovelace resource to: %s", url2)
 
             if isinstance(resources, ResourceStorageCollection):
                 await resources.async_update_item(
@@ -67,13 +79,13 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
             return True
 
         if isinstance(resources, ResourceStorageCollection):
-            _LOGGER.debug(f"Add new lovelace resource: {url2}")
+            _LOGGER.debug("Add new lovelace resource: %s", url2)
             await resources.async_create_item({"res_type": "module", "url": url2})
         else:
-            _LOGGER.debug(f"Add extra JS module: {url2}")
+            _LOGGER.debug("Add extra JS module: %s", url2)
             add_extra_js_url(hass, url2)
 
         return True
     except Exception as err:
-        _LOGGER.error(f"Error initializing resource: {err}", exc_info=True)
+        _LOGGER.error("Error initializing resource: %s", err, exc_info=True)
         return False
