@@ -87,6 +87,7 @@ class StreamConfigManager:
                 camera_entity.entity_id,
                 camera_entity.unique_id,
                 device_info,
+                None if len(media_player_entities) == 0 else media_player_entities[0].entity_id
             )
             _LOGGER.debug(
                 "Created microphone entity for camera: %s",
