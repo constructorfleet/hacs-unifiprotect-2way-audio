@@ -14,6 +14,7 @@ class Unifi2WayAudio extends HTMLElement {
     this._isTalkbackActive = false;
     this._isMuted = false;
     this._lastCameraId = null;
+    this._rendered = false;
     this._stream = null;
   }
 
@@ -40,6 +41,9 @@ class Unifi2WayAudio extends HTMLElement {
       return;
     }
     
+    if (this._rendered) {
+      return;
+    }
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -182,37 +186,43 @@ class Unifi2WayAudio extends HTMLElement {
     this._talkbackButton.addEventListener('click', () => this.toggleTalkback());
 
     this.updateState();
-    this.updateCameraFeed();
+    // this.updateCameraFeed();
+    this._rendered = true;
   }
 
   updateCameraFeed() {
-    console.dir({
-      updateCameraFeed: {
-        lastCameraId: this._lastCameraId,
-        stream: this._stream,  
-      }
-    });
-    if (!this._hass || !this._config) return;  
-    const container = this.shadowRoot.getElementById("camera-stream");
-    if (!container) return;
-
-    container.innerHTML = "";
+    if (!this._hass || !this._config) return;
 
     const cameraEntityId = this.getCameraEntityId();
     if (!cameraEntityId) return;
 
+    // Guard FIRST, before touching the DOM
+    if (cameraEntityId === this._lastCameraId && this._stream) {
+      // Ensure it's still attached
+      const container = this.shadowRoot.getElementById("camera-stream");
+      if (container && !container.contains(this._stream)) {
+        container.appendChild(this._stream);
+      }
+      return;
+    }
+
+    const container = this.shadowRoot.getElementById("camera-stream");
+    if (!container) return;
+
     const stateObj = this._hass.states[cameraEntityId];
     if (!stateObj) return;
 
-    // if (cameraEntityId === this._lastCameraId && this._stream !== null) {
-    //   return;
-    // }
-    this._stream = document.createElement("ha-camera-stream");
-    this._stream.hass = this._hass;
-    this._stream.stateObj = stateObj;
-    this._stream.controls = false;
+    // Now it is safe to replace
+    container.innerHTML = "";
 
-    container.appendChild(this._stream);
+    const stream = document.createElement("ha-camera-stream");
+    stream.hass = this._hass;
+    stream.stateObj = stateObj;
+    stream.controls = false;
+
+    container.appendChild(stream);
+
+    this._stream = stream;
     this._lastCameraId = cameraEntityId;
   }
 
