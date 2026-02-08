@@ -328,8 +328,8 @@ class TalkbackSwitch(SwitchEntity):
             _LOGGER.info(
                 "Talkback session created for %s - RTP URL: %s, codec: %s",
                 self._camera_entity_id,
-                self._talkback_session.get("url", "unknown"),
-                self._talkback_session.get("codec", "unknown"),
+                getattr(self._talkback_session, "url", "unknown"),
+                getattr(self._talkback_session, "codec", "unknown"),
             )
 
         except Exception as err:
@@ -351,46 +351,39 @@ class TalkbackSwitch(SwitchEntity):
     async def _get_protect_camera(self) -> None:
         """Get the UniFi Protect camera object from the integration."""
         try:
-            # Try to access the unifiprotect integration data
-            if "unifiprotect" not in self.hass.data:
-                _LOGGER.warning("UniFi Protect integration not found")
+            # Get the camera entity from the entity component
+            if "camera" not in self.hass.data:
+                _LOGGER.warning("Camera component not found")
                 return
 
-            # Get the camera from entity registry
-            from homeassistant.helpers import entity_registry as er
+            camera_component = self.hass.data["camera"]
+            if not hasattr(camera_component, "get_entity"):
+                _LOGGER.warning("Camera component does not have get_entity method")
+                return
 
-            entity_reg = er.async_get(self.hass)
-            camera_entry = entity_reg.async_get(self._camera_entity_id)
+            camera_entity = camera_component.get_entity(self._camera_entity_id)
 
-            if not camera_entry:
+            if not camera_entity:
                 _LOGGER.warning(
-                    "Camera entity %s not found in registry",
+                    "Camera entity %s not found in camera component",
                     self._camera_entity_id,
                 )
                 return
 
-            # Try to get the camera from UniFi Protect integration
-            # This is a simplified approach - actual implementation may vary
-            for entry_id, entry_data in self.hass.data["unifiprotect"].items():
-                if hasattr(entry_data, "bootstrap") and hasattr(
-                    entry_data.bootstrap, "cameras"
-                ):
-                    # Search for camera by unique_id
-                    for camera in entry_data.bootstrap.cameras.values():
-                        if camera.id == self._camera_unique_id or str(
-                            camera.id
-                        ) in self._camera_unique_id:
-                            self._protect_camera = camera
-                            _LOGGER.debug(
-                                "Found camera object: %s (ID: %s)",
-                                camera.name,
-                                camera.id,
-                            )
-                            return
+            # The uiprotect.data.Camera object is stored as .device on the CameraEntity
+            # This is the actual camera device from the uiprotect library, not a HA device
+            if getattr(camera_entity, "device", None) is None:
+                _LOGGER.warning(
+                    "Camera entity %s does not have device attribute or device is None",
+                    self._camera_entity_id,
+                )
+                return
 
-            _LOGGER.warning(
-                "Could not find camera %s in UniFi Protect data",
-                self._camera_entity_id,
+            self._protect_camera = camera_entity.device
+            _LOGGER.debug(
+                "Found camera device: %s (ID: %s)",
+                getattr(self._protect_camera, "name", "unknown"),
+                getattr(self._protect_camera, "id", "unknown"),
             )
 
         except Exception as err:
@@ -400,35 +393,42 @@ class TalkbackSwitch(SwitchEntity):
                 exc_info=True,
             )
 
-    async def _create_talkback_session(self) -> dict[str, Any] | None:
+    async def _create_talkback_session(self) -> Any | None:
         """Create a talkback session with the camera.
 
-        Returns dict with session info:
+        Returns a TalkbackSession object from uiprotect library with attributes:
             - url: RTP streaming URL
             - codec: Audio codec (typically 'opus')
-            - samplingRate: Sampling rate in Hz
-            - bitsPerSample: Bits per sample
+            - sampling_rate: Sampling rate in Hz
+            - bits_per_sample: Bits per sample
         """
         try:
             if not self._protect_camera:
                 _LOGGER.error("No camera object available")
                 return None
 
-            # Try to create talkback session using the camera's API client
-            if hasattr(self._protect_camera, "api") and hasattr(
-                self._protect_camera.api, "create_talkback_session"
-            ):
-                session = await self._protect_camera.api.create_talkback_session(
-                    self._protect_camera.id
-                )
+            # Use the camera device's create_talkback_stream method
+            # This returns a TalkbackSession object with session details
+            if hasattr(self._protect_camera, "create_talkback_stream"):
+                session = await self._protect_camera.create_talkback_stream()
+
+                # Validate the session object exists
+                if session is None:
+                    _LOGGER.error(
+                        "create_talkback_stream returned None"
+                    )
+                    return None
+
                 _LOGGER.debug(
-                    "Talkback session created: %s",
-                    session,
+                    "Talkback session created - type: %s, url: %s, codec: %s",
+                    type(session).__name__,
+                    getattr(session, "url", "unknown"),
+                    getattr(session, "codec", "unknown"),
                 )
                 return session
             else:
                 _LOGGER.error(
-                    "Camera API does not support talkback sessions"
+                    "Camera device does not support create_talkback_stream"
                 )
                 return None
 
@@ -476,12 +476,9 @@ class TalkbackSwitch(SwitchEntity):
         # Close the talkback session with camera
         if self._talkback_session and self._protect_camera:
             try:
-                if hasattr(self._protect_camera, "api") and hasattr(
-                    self._protect_camera.api, "delete_talkback_session"
-                ):
-                    await self._protect_camera.api.delete_talkback_session(
-                        self._protect_camera.id
-                    )
+                # Try to close the talkback stream using the device method
+                if hasattr(self._protect_camera, "close_talkback_stream"):
+                    await self._protect_camera.close_talkback_stream()
                     _LOGGER.debug("Talkback session closed")
             except Exception as err:
                 _LOGGER.warning(
@@ -509,9 +506,10 @@ class TalkbackSwitch(SwitchEntity):
             if not self._talkback_session:
                 raise RuntimeError("No talkback session available")
 
-            rtp_url = self._talkback_session.get("url")
-            codec_name = self._talkback_session.get("codec", "opus")
-            sample_rate = self._talkback_session.get("samplingRate", 24000)
+            # Access session attributes (TalkbackSession object from uiprotect)
+            rtp_url = getattr(self._talkback_session, "url", None)
+            codec_name = getattr(self._talkback_session, "codec", "opus")
+            sample_rate = getattr(self._talkback_session, "sampling_rate", 24000)
 
             if not rtp_url:
                 raise RuntimeError("No RTP URL in talkback session")
