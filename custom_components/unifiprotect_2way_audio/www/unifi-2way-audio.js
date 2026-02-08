@@ -14,6 +14,7 @@ class Unifi2WayAudio extends HTMLElement {
     this._isTalkbackActive = false;
     this._isMuted = false;
     this._lastCameraId = null;
+    this._stream = null;
   }
 
   setConfig(config) {
@@ -185,6 +186,12 @@ class Unifi2WayAudio extends HTMLElement {
   }
 
   updateCameraFeed() {
+    console.dir({
+      updateCameraFeed: {
+        lastCameraId: this._lastCameraId,
+        stream: this._stream,  
+      }
+    });
     if (!this._hass || !this._config) return;  
     const container = this.shadowRoot.getElementById("camera-stream");
     if (!container) return;
@@ -192,15 +199,18 @@ class Unifi2WayAudio extends HTMLElement {
     container.innerHTML = "";
 
     const cameraEntityId = this.getCameraEntityId();
-    if (!cameraEntityId || cameraEntityId === this._lastCameraId) return;
+    if (!cameraEntityId) return;
 
     const stateObj = this._hass.states[cameraEntityId];
     if (!stateObj) return;
 
-    const stream = document.createElement("ha-camera-stream");
-    stream.hass = this._hass;
-    stream.stateObj = stateObj;
-    stream.controls = true;
+    if (cameraEntityId === this._lastCameraId && this._stream !== null) {
+      return;
+    }
+    this._stream = document.createElement("ha-camera-stream");
+    this._stream.hass = this._hass;
+    this._stream.stateObj = stateObj;
+    this._stream.controls = false;
 
     container.appendChild(stream);
     this._lastCameraId = cameraEntityId;
