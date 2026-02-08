@@ -32,6 +32,9 @@ STATE_ACTIVE = "active"
 STATE_STOPPING = "stopping"
 STATE_ERROR = "error"
 
+# Audio processing constants
+MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM header
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -617,7 +620,7 @@ class TalkbackSwitch(SwitchEntity):
             target_sample_rate: Target sample rate for output
         """
         # Validate audio data before processing
-        if not audio_data or len(audio_data) == 0:
+        if not audio_data:
             _LOGGER.debug(
                 "Skipping empty audio chunk for %s",
                 self._camera_entity_id,
@@ -626,7 +629,6 @@ class TalkbackSwitch(SwitchEntity):
 
         # WebM container requires minimum size for valid header
         # Skip chunks that are too small to be valid WebM data
-        MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM header
         if len(audio_data) < MIN_WEBM_SIZE:
             _LOGGER.debug(
                 "Skipping undersized audio chunk for %s - size: %d bytes (minimum: %d)",
