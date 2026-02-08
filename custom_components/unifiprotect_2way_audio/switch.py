@@ -33,7 +33,10 @@ STATE_STOPPING = "stopping"
 STATE_ERROR = "error"
 
 # Audio processing constants
-MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM header
+# WebM container structure: EBML Header (typically 40-50 bytes) + Segment Header (~20-30 bytes)
+# Setting minimum to 50 bytes ensures we have at least the EBML header before attempting to parse
+# This prevents PyAV from failing on partial/incomplete MediaRecorder chunks
+MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM container with EBML header
 
 
 async def async_setup_entry(
