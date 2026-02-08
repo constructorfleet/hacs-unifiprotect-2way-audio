@@ -194,7 +194,6 @@ class Unifi2WayAudio extends HTMLElement {
     const cameraEntityId = this.getCameraEntityId();
     if (!cameraEntityId || cameraEntityId === this._lastCameraId) return;
 
-    this._lastCameraId = cameraEntityId;
     const stateObj = this._hass.states[cameraEntityId];
     if (!stateObj) return;
 
@@ -204,6 +203,7 @@ class Unifi2WayAudio extends HTMLElement {
     stream.controls = true;
 
     container.appendChild(stream);
+    this._lastCameraId = cameraEntityId;
   }
 
   getCameraEntity() {
