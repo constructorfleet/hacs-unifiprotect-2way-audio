@@ -1,7 +1,7 @@
 {
   "domain": "unifiprotect_2way_audio",
   "name": "UniFi Protect 2-Way Audio",
-  "version": "2.2.12",
+  "version": "2.2.13",
   "config_flow": true,
   "documentation": "https://github.com/constructorfleet/hacs-unifiprotect-2way-audio",
   "issue_tracker": "https://github.com/constructorfleet/hacs-unifiprotect-2way-audio/issues",

@@ -29,7 +29,7 @@ class Unifi2WayAudio extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     this.updateState();
-    this.updateCameraFeed();
+    void this.updateCameraFeed();
   }
 
   getCardSize() {
@@ -189,8 +189,22 @@ class Unifi2WayAudio extends HTMLElement {
     // this.updateCameraFeed();
     this._rendered = true;
   }
+  async _ensureStream(cameraEntityId) {
+    try {
+      // Ask HA to create/ensure a stream for this camera.
+      // If it already exists, HA typically just returns a URL/id.
+      const res = await this._hass.callWS({
+        type: "camera/stream",
+        entity_id: cameraEntityId,
+      });
+      return res;
+    } catch (e) {
+      console.error("Failed to ensure camera stream:", e);
+      return null;
+    }
+  }
 
-  updateCameraFeed() {
+  async updateCameraFeed() {
     if (!this._hass || !this._config) return;
 
     const cameraEntityId = this.getCameraEntityId();
@@ -211,6 +225,8 @@ class Unifi2WayAudio extends HTMLElement {
 
     const stateObj = this._hass.states[cameraEntityId];
     if (!stateObj) return;
+
+    await this._ensureStream(cameraEntityId);
 
     // Now it is safe to replace
     container.innerHTML = "";
@@ -323,7 +339,7 @@ class Unifi2WayAudio extends HTMLElement {
       this._statusLabel.textContent = 'Idle';
     }
 
-    this.updateCameraFeed();
+    void this.updateCameraFeed();
   }
 
   async toggleMute() {
