@@ -312,6 +312,135 @@ If the permissions policy is configured correctly but you still can't access the
 - Ensure the camera firmware is up to date
 - Verify network connectivity between Home Assistant and UniFi Protect
 
+### Debugging Audio Transmission
+
+This integration provides comprehensive debugging to help diagnose audio transmission issues.
+
+#### Viewing Transmission Statistics
+
+Each talkback switch entity exposes detailed state attributes that can be viewed in Developer Tools → States:
+
+**Available Attributes:**
+- `session_state`: Current state (idle, starting, active, stopping, error)
+- `audio_bytes_sent`: Total bytes transmitted in current/last session
+- `audio_packets_sent`: Total audio packets transmitted
+- `transmission_errors`: Count of transmission errors
+- `last_transmission_time`: Timestamp of last audio packet sent
+- `session_duration`: Duration of current active session
+- `target_camera`: The camera entity receiving audio
+- `transport`: Audio transport method being used
+
+**Example:**
+```yaml
+entity_id: switch.front_door_talkback
+state: "on"
+attributes:
+  session_state: active
+  audio_bytes_sent: 245760
+  audio_packets_sent: 153
+  transmission_errors: 0
+  last_transmission_time: "2024-01-15T10:30:45.123456"
+  session_duration: "0:02:15"
+  target_camera: camera.front_door
+  transport: ffmpeg
+```
+
+#### Enabling Debug Logging
+
+To see detailed transmission logs in Home Assistant:
+
+1. Add to your `configuration.yaml`:
+   ```yaml
+   logger:
+     default: info
+     logs:
+       custom_components.unifiprotect_2way_audio: debug
+   ```
+
+2. Restart Home Assistant
+
+3. View logs in Settings → System → Logs or check `home-assistant.log`
+
+**What Gets Logged:**
+- Backchannel session start/stop events
+- Audio pipeline initialization
+- Audio packet transmission (size, count)
+- Transmission statistics every 100 packets
+- Error details with context
+- Session cleanup and resource release
+
+**Example Log Entries:**
+```
+INFO (MainThread) [custom_components.unifiprotect_2way_audio.switch] 
+  Backchannel started successfully for camera.front_door - ready to transmit audio
+
+DEBUG (MainThread) [custom_components.unifiprotect_2way_audio.switch] 
+  Transmitting audio packet to camera.front_door - size: 1024 bytes, 
+  total_packets: 50, total_bytes: 51200
+
+INFO (MainThread) [custom_components.unifiprotect_2way_audio.switch] 
+  Audio transmission stats for camera.front_door - packets: 100, 
+  bytes: 100 KB, errors: 0
+
+INFO (MainThread) [custom_components.unifiprotect_2way_audio.switch] 
+  Backchannel stopped successfully for camera.front_door - session stats: 
+  duration: 45.2s, bytes_sent: 153600, packets_sent: 150, errors: 0
+```
+
+#### Browser Console Debugging
+
+For frontend debugging, open your browser's Developer Console (F12) and look for messages prefixed with `[UniFi 2-Way Audio]`:
+
+**What Gets Logged:**
+- Talkback button toggle attempts with state changes
+- Audio transmission active/inactive status
+- Session statistics from entity attributes
+- Talkback state transitions
+
+**Example Console Output:**
+```
+[UniFi 2-Way Audio] Toggling talkback switch: {
+  entity: "switch.front_door_talkback",
+  currentState: "off",
+  nextState: "on",
+  timestamp: "2024-01-15T10:30:00.000Z"
+}
+
+[UniFi 2-Way Audio] Audio transmission starting - backchannel opening
+
+[UniFi 2-Way Audio] Talkback state changed: {
+  entity: "switch.front_door_talkback",
+  state: "active",
+  session_state: "active",
+  audio_packets_sent: 153,
+  audio_bytes_sent: 245760,
+  timestamp: "2024-01-15T10:32:15.000Z"
+}
+
+[UniFi 2-Way Audio] Audio transmission ACTIVE - microphone data should be 
+  flowing to camera
+```
+
+#### Diagnosing Common Issues
+
+**Issue: Switch turns on but no audio**
+- Check `session_state` attribute - should be "active"
+- Verify `audio_packets_sent` increases over time
+- Look for transmission errors in logs
+- Check `last_transmission_time` is updating
+
+**Issue: Transmission errors**
+- Check `transmission_errors` count in attributes
+- Review error logs for specific error messages
+- Verify network connectivity
+- Ensure camera is online in UniFi Protect
+
+**Issue: Session won't start**
+- Check `session_state` - if stuck in "starting", there's a connection issue
+- Review logs for initialization errors
+- Verify UniFi Protect integration is working
+- Check camera entity is accessible
+
 ### Integration Not Finding Cameras
 
 - Ensure the UniFi Protect integration is properly configured
