@@ -79,3 +79,109 @@ async def test_switch_turn_off() -> None:
         # Set state to off
         switch._is_on = False
         assert switch.is_on is False
+
+
+async def test_process_audio_empty_data() -> None:
+    """Test that empty audio data is skipped gracefully."""
+    with patch("custom_components.unifiprotect_2way_audio.switch.av"):
+        from custom_components.unifiprotect_2way_audio.switch import TalkbackSwitch
+
+        hass = MagicMock()
+        mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
+        switch = TalkbackSwitch(
+            hass,
+            "camera.test_camera",
+            "test_camera_id",
+            mock_device_info,
+            "media_player.test_camera",
+        )
+
+        mock_output_container = MagicMock()
+        mock_output_stream = MagicMock()
+
+        # Test with empty bytes
+        await switch._process_and_stream_audio(
+            b"",
+            mock_output_container,
+            mock_output_stream,
+            24000,
+        )
+
+        # Verify no errors and container was not used
+        assert switch._transmission_errors == 0
+        assert switch._audio_packets_sent == 0
+
+
+async def test_process_audio_undersized_data() -> None:
+    """Test that undersized audio data is skipped gracefully."""
+    with patch("custom_components.unifiprotect_2way_audio.switch.av"):
+        from custom_components.unifiprotect_2way_audio.switch import (
+            MIN_WEBM_SIZE,
+            TalkbackSwitch,
+        )
+
+        hass = MagicMock()
+        mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
+        switch = TalkbackSwitch(
+            hass,
+            "camera.test_camera",
+            "test_camera_id",
+            mock_device_info,
+            "media_player.test_camera",
+        )
+
+        mock_output_container = MagicMock()
+        mock_output_stream = MagicMock()
+
+        # Test with undersized data (less than MIN_WEBM_SIZE)
+        small_data = b"x" * (MIN_WEBM_SIZE - 20)
+        await switch._process_and_stream_audio(
+            small_data,
+            mock_output_container,
+            mock_output_stream,
+            24000,
+        )
+
+        # Verify no errors and container was not used
+        assert switch._transmission_errors == 0
+        assert switch._audio_packets_sent == 0
+
+
+async def test_process_audio_invalid_webm() -> None:
+    """Test that invalid WebM data is handled gracefully."""
+    import av
+
+    with patch("custom_components.unifiprotect_2way_audio.switch.av", av):
+        from custom_components.unifiprotect_2way_audio.switch import (
+            MIN_WEBM_SIZE,
+            TalkbackSwitch,
+        )
+
+        hass = MagicMock()
+        mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
+        switch = TalkbackSwitch(
+            hass,
+            "camera.test_camera",
+            "test_camera_id",
+            mock_device_info,
+            "media_player.test_camera",
+        )
+
+        mock_output_container = MagicMock()
+        mock_output_stream = MagicMock()
+
+        # Test with invalid data that will cause PyAV to raise InvalidDataError
+        # (data large enough to pass size check but invalid format)
+        invalid_data = b"x" * (MIN_WEBM_SIZE + 50)
+
+        # This should not raise an exception, just log and return
+        await switch._process_and_stream_audio(
+            invalid_data,
+            mock_output_container,
+            mock_output_stream,
+            24000,
+        )
+
+        # Verify no transmission errors incremented (since this is expected)
+        assert switch._transmission_errors == 0
+        assert switch._audio_packets_sent == 0
