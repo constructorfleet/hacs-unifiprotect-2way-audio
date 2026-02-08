@@ -514,16 +514,28 @@ class Unifi2WayAudio extends HTMLElement {
       const uint8Array = new Uint8Array(arrayBuffer);
       const base64Audio = btoa(String.fromCharCode.apply(null, uint8Array));
       
-      // Send audio chunk via service
-      await this._hass.callService('unifiprotect_2way_audio', 'send_audio', {
+      // Send audio chunk via websocket (compatible with assist pipeline)
+      await this._hass.connection.sendMessagePromise({
+        type: 'unifiprotect_2way_audio/stream_audio',
         entity_id: switchEntityId,
         audio_data: base64Audio,
       });
       
-      console.log(`[UniFi 2-Way Audio] Audio chunk sent: ${audioBlob.size} bytes`);
+      console.log(`[UniFi 2-Way Audio] Audio chunk sent via websocket: ${audioBlob.size} bytes`);
       
     } catch (error) {
       console.error('[UniFi 2-Way Audio] Failed to send audio chunk:', error);
+      
+      // Fallback to service call if websocket fails
+      try {
+        await this._hass.callService('unifiprotect_2way_audio', 'send_audio', {
+          entity_id: switchEntityId,
+          audio_data: base64Audio,
+        });
+        console.log('[UniFi 2-Way Audio] Audio sent via service fallback');
+      } catch (fallbackError) {
+        console.error('[UniFi 2-Way Audio] Service fallback also failed:', fallbackError);
+      }
     }
   }
 

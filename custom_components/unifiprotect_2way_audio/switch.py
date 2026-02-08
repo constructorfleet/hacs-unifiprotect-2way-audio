@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import datetime
 import io
 import logging
 from typing import Any
@@ -152,7 +153,6 @@ class TalkbackSwitch(SwitchEntity):
         # Calculate session duration if active
         session_duration = None
         if self._session_start_time:
-            import datetime
             duration = datetime.datetime.now() - self._session_start_time
             session_duration = str(duration).split('.')[0]  # Remove microseconds
 
@@ -189,7 +189,6 @@ class TalkbackSwitch(SwitchEntity):
             self._last_error = ""
 
             # Reset statistics for new session
-            import datetime
             self._audio_bytes_sent = 0
             self._audio_packets_sent = 0
             self._transmission_errors = 0
@@ -259,7 +258,6 @@ class TalkbackSwitch(SwitchEntity):
             self._last_error = ""
 
             # Log final statistics
-            import datetime
             session_duration = None
             if self._session_start_time:
                 duration = datetime.datetime.now() - self._session_start_time
@@ -651,7 +649,6 @@ class TalkbackSwitch(SwitchEntity):
             input_container.close()
 
             # Update statistics
-            import datetime
             data_size = len(audio_data)
             self._audio_bytes_sent += data_size
             self._audio_packets_sent += 1

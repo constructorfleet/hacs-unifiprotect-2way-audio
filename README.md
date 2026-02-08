@@ -342,7 +342,7 @@ attributes:
   last_transmission_time: "2024-01-15T10:30:45.123456"
   session_duration: "0:02:15"
   target_camera: camera.front_door
-  transport: ffmpeg
+  transport: pyav
 ```
 
 #### Enabling Debug Logging
