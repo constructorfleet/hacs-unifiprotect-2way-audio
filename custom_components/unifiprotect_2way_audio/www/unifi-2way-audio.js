@@ -472,8 +472,10 @@ class Unifi2WayAudio extends HTMLElement {
         console.error('[UniFi 2-Way Audio] MediaRecorder error:', event.error);
       };
       
-      // Start recording - send chunks every 100ms for real-time streaming
-      this._mediaRecorder.start(100);
+      // Start recording - send chunks every 500ms for real-time streaming
+      // Increased from 100ms to ensure chunks are large enough to contain
+      // valid WebM container headers (minimum ~50 bytes for EBML header)
+      this._mediaRecorder.start(500);
       
       console.log('[UniFi 2-Way Audio] Audio capture started - streaming to camera');
       

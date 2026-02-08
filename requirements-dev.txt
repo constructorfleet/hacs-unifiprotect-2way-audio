@@ -1,5 +1,5 @@
 # Testing - includes pytest, pytest-asyncio, pytest-cov, and Home Assistant dependencies
-pytest-homeassistant-custom-component==0.13.314
+pytest-homeassistant-custom-component==0.13.205
 
 # Integration-specific dependencies
 av==16.1.0
@@ -10,5 +10,5 @@ ruff==0.15.0
 # Type checking
 mypy==1.19.1
 pycares==4.9
-aiodns==3.6.1 
-homeassistant==2026.2.1
+aiodns==3.2.0
+homeassistant==2025.1.4
