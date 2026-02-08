@@ -9,6 +9,6 @@ ruff==0.15.0
 
 # Type checking
 mypy==1.19.1
-pycares==4.9
+pycares>=4.9.0,<5.0.0
 aiodns==3.6.1 
 homeassistant==2026.2.1
