@@ -204,9 +204,9 @@ class Unifi2WayAudio extends HTMLElement {
     const stateObj = this._hass.states[cameraEntityId];
     if (!stateObj) return;
 
-    if (cameraEntityId === this._lastCameraId && this._stream !== null) {
-      return;
-    }
+    // if (cameraEntityId === this._lastCameraId && this._stream !== null) {
+    //   return;
+    // }
     this._stream = document.createElement("ha-camera-stream");
     this._stream.hass = this._hass;
     this._stream.stateObj = stateObj;
