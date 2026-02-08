@@ -351,46 +351,34 @@ class TalkbackSwitch(SwitchEntity):
     async def _get_protect_camera(self) -> None:
         """Get the UniFi Protect camera object from the integration."""
         try:
-            # Try to access the unifiprotect integration data
-            if "unifiprotect" not in self.hass.data:
-                _LOGGER.warning("UniFi Protect integration not found")
+            # Get the camera entity from the entity component
+            if "camera" not in self.hass.data:
+                _LOGGER.warning("Camera component not found")
                 return
 
-            # Get the camera from entity registry
-            from homeassistant.helpers import entity_registry as er
+            camera_component = self.hass.data["camera"]
+            camera_entity = camera_component.get_entity(self._camera_entity_id)
 
-            entity_reg = er.async_get(self.hass)
-            camera_entry = entity_reg.async_get(self._camera_entity_id)
-
-            if not camera_entry:
+            if not camera_entity:
                 _LOGGER.warning(
-                    "Camera entity %s not found in registry",
+                    "Camera entity %s not found in camera component",
                     self._camera_entity_id,
                 )
                 return
 
-            # Try to get the camera from UniFi Protect integration
-            # This is a simplified approach - actual implementation may vary
-            for entry_id, entry_data in self.hass.data["unifiprotect"].items():
-                if hasattr(entry_data, "bootstrap") and hasattr(
-                    entry_data.bootstrap, "cameras"
-                ):
-                    # Search for camera by unique_id
-                    for camera in entry_data.bootstrap.cameras.values():
-                        if camera.id == self._camera_unique_id or str(
-                            camera.id
-                        ) in self._camera_unique_id:
-                            self._protect_camera = camera
-                            _LOGGER.debug(
-                                "Found camera object: %s (ID: %s)",
-                                camera.name,
-                                camera.id,
-                            )
-                            return
+            # The uiprotect.data.Camera is stored as .device on the CameraEntity
+            if not hasattr(camera_entity, "device"):
+                _LOGGER.warning(
+                    "Camera entity %s does not have device attribute",
+                    self._camera_entity_id,
+                )
+                return
 
-            _LOGGER.warning(
-                "Could not find camera %s in UniFi Protect data",
-                self._camera_entity_id,
+            self._protect_camera = camera_entity.device
+            _LOGGER.debug(
+                "Found camera device: %s (ID: %s)",
+                getattr(self._protect_camera, "name", "unknown"),
+                getattr(self._protect_camera, "id", "unknown"),
             )
 
         except Exception as err:
@@ -414,13 +402,9 @@ class TalkbackSwitch(SwitchEntity):
                 _LOGGER.error("No camera object available")
                 return None
 
-            # Try to create talkback session using the camera's API client
-            if hasattr(self._protect_camera, "api") and hasattr(
-                self._protect_camera.api, "create_talkback_session"
-            ):
-                session = await self._protect_camera.api.create_talkback_session(
-                    self._protect_camera.id
-                )
+            # Use the camera device's create_talkback_stream method
+            if hasattr(self._protect_camera, "create_talkback_stream"):
+                session = await self._protect_camera.create_talkback_stream()
                 _LOGGER.debug(
                     "Talkback session created: %s",
                     session,
@@ -428,7 +412,7 @@ class TalkbackSwitch(SwitchEntity):
                 return session
             else:
                 _LOGGER.error(
-                    "Camera API does not support talkback sessions"
+                    "Camera device does not support create_talkback_stream"
                 )
                 return None
 
@@ -476,12 +460,9 @@ class TalkbackSwitch(SwitchEntity):
         # Close the talkback session with camera
         if self._talkback_session and self._protect_camera:
             try:
-                if hasattr(self._protect_camera, "api") and hasattr(
-                    self._protect_camera.api, "delete_talkback_session"
-                ):
-                    await self._protect_camera.api.delete_talkback_session(
-                        self._protect_camera.id
-                    )
+                # Try to close the talkback stream using the device method
+                if hasattr(self._protect_camera, "close_talkback_stream"):
+                    await self._protect_camera.close_talkback_stream()
                     _LOGGER.debug("Talkback session closed")
             except Exception as err:
                 _LOGGER.warning(
