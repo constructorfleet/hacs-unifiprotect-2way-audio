@@ -19,6 +19,9 @@ from homeassistant.helpers.entity_platform import (
 )
 from homeassistant.util import dt as dt_util
 
+from uiprotect.data.devices import Camera as UPCamera
+from uiprotect.stream import TalkbackSession
+
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,9 +128,9 @@ class TalkbackSwitch(SwitchEntity):
 
         # Backchannel session management
         self._backchannel_task: asyncio.Task | None = None
-        self._talkback_session: dict[str, Any] | None = None
+        self._talkback_session: TalkbackSession | None = None
         self._audio_queue: asyncio.Queue = asyncio.Queue()
-        self._protect_camera = None
+        self._protect_camera: UPCamera | None = None
 
         # Audio transmission statistics for debugging
         self._audio_bytes_sent = 0
@@ -393,7 +396,7 @@ class TalkbackSwitch(SwitchEntity):
                 exc_info=True,
             )
 
-    async def _create_talkback_session(self) -> Any | None:
+    async def _create_talkback_session(self) -> TalkbackSession | None:
         """Create a talkback session with the camera.
 
         Returns a TalkbackSession object from uiprotect library with attributes:
@@ -409,8 +412,10 @@ class TalkbackSwitch(SwitchEntity):
 
             # Use the camera device's create_talkback_stream method
             # This returns a TalkbackSession object with session details
-            if hasattr(self._protect_camera, "create_talkback_stream"):
-                session = await self._protect_camera.create_talkback_stream()
+            if hasattr(self._protect_camera, "_api"):
+                api = self._protect_camera._api
+
+                session = await api.create_talkback_session_public(self._protect_camera.id)
 
                 # Validate the session object exists
                 if session is None:
