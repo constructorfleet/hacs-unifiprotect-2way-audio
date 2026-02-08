@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import datetime
 import io
 import logging
 from typing import Any
@@ -18,6 +17,7 @@ from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
     async_get_current_platform,
 )
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 
@@ -153,8 +153,13 @@ class TalkbackSwitch(SwitchEntity):
         # Calculate session duration if active
         session_duration = None
         if self._session_start_time:
-            duration = datetime.datetime.now() - self._session_start_time
-            session_duration = str(duration).split('.')[0]  # Remove microseconds
+            duration = dt_util.utcnow() - self._session_start_time
+            # Format as HH:MM:SS
+            total_seconds = int(duration.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            session_duration = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
         return {
             **attrs,
@@ -193,7 +198,7 @@ class TalkbackSwitch(SwitchEntity):
             self._audio_packets_sent = 0
             self._transmission_errors = 0
             self._last_transmission_time = None
-            self._session_start_time = datetime.datetime.now()
+            self._session_start_time = dt_util.utcnow()
 
             self.async_write_ha_state()
 
@@ -260,7 +265,7 @@ class TalkbackSwitch(SwitchEntity):
             # Log final statistics
             session_duration = None
             if self._session_start_time:
-                duration = datetime.datetime.now() - self._session_start_time
+                duration = dt_util.utcnow() - self._session_start_time
                 session_duration = duration.total_seconds()
 
             self._session_start_time = None
@@ -652,7 +657,7 @@ class TalkbackSwitch(SwitchEntity):
             data_size = len(audio_data)
             self._audio_bytes_sent += data_size
             self._audio_packets_sent += 1
-            self._last_transmission_time = datetime.datetime.now().isoformat()
+            self._last_transmission_time = dt_util.utcnow().isoformat()
 
             _LOGGER.debug(
                 "Streamed audio chunk to %s - size: %d bytes, "
