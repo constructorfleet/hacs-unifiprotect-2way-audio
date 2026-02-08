@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
@@ -13,6 +13,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import DOMAIN
 from .frontend import register_static_path, init_resource
 from .manager import StreamConfigManager
+from .websocket_api import async_register_websocket_handlers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,6 +26,9 @@ PLATFORMS = ["switch"]
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the UniFi Protect 2-Way Audio component."""
     _LOGGER.info("Setting up UniFi Protect 2-Way Audio integration")
+
+    # Register websocket API handlers for audio streaming
+    async_register_websocket_handlers(hass)
 
     # Register static path for the Lovelace card
     try:

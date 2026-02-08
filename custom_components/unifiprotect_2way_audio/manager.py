@@ -1,7 +1,6 @@
 """Manager for UniFi Protect 2-Way Audio camera stream configuration."""
 from __future__ import annotations
 
-from itertools import groupby
 
 import logging
 
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-from .const import DOMAIN
 
 
 class Unifi2WayAudioDevice:

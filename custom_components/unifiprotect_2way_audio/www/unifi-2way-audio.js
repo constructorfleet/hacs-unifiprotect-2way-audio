@@ -16,6 +16,11 @@ class Unifi2WayAudio extends HTMLElement {
     this._lastCameraId = null;
     this._rendered = false;
     this._stream = null;
+    
+    // Audio capture for talkback
+    this._mediaStream = null;
+    this._mediaRecorder = null;
+    this._audioChunks = [];
   }
 
   setConfig(config) {
@@ -300,13 +305,27 @@ class Unifi2WayAudio extends HTMLElement {
     // Determine if muted from media_player state
     const isMuted = mediaPlayerState ? mediaPlayerState.attributes.is_volume_muted === true : false;
 
+    // Log state changes for debugging
+    if (isTalkbackActive !== this._isTalkbackActive) {
+      console.log('[UniFi 2-Way Audio] Talkback state changed:', {
+        entity: switchEntityId,
+        state: isTalkbackActive ? 'active' : 'inactive',
+        session_state: switchState?.attributes?.session_state,
+        audio_packets_sent: switchState?.attributes?.audio_packets_sent || 0,
+        audio_bytes_sent: switchState?.attributes?.audio_bytes_sent || 0,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Update talkback button state
     if (isTalkbackActive !== this._isTalkbackActive) {
       this._isTalkbackActive = isTalkbackActive;
       if (isTalkbackActive) {
         this._talkbackButton.classList.add('recording');
+        console.log('[UniFi 2-Way Audio] Audio transmission ACTIVE - microphone data should be flowing to camera');
       } else {
         this._talkbackButton.classList.remove('recording');
+        console.log('[UniFi 2-Way Audio] Audio transmission INACTIVE - no audio data being sent');
       }
     }
 
@@ -373,14 +392,150 @@ class Unifi2WayAudio extends HTMLElement {
     // Get switch entity ID
     const switchEntityId = this.getSwitchEntityId();
     
+    // Get current state for logging
+    const switchState = this._hass.states[switchEntityId];
+    const currentState = switchState ? switchState.state : 'unknown';
+    
+    console.log('[UniFi 2-Way Audio] Toggling talkback switch:', {
+      entity: switchEntityId,
+      currentState: currentState,
+      nextState: currentState === 'on' ? 'off' : 'on',
+      timestamp: new Date().toISOString()
+    });
+    
     try {
-      // Toggle the switch entity
-      await this._hass.callService('switch', 'toggle', {
-        entity_id: switchEntityId,
-      });
+      if (currentState === 'off') {
+        // Starting talkback - turn on switch then start audio capture
+        await this._hass.callService('switch', 'turn_on', {
+          entity_id: switchEntityId,
+        });
+        
+        console.log('[UniFi 2-Way Audio] Talkback switch turned on - starting audio capture');
+        await this.startAudioCapture();
+        
+      } else {
+        // Stopping talkback - stop audio capture then turn off switch
+        console.log('[UniFi 2-Way Audio] Stopping audio capture');
+        await this.stopAudioCapture();
+        
+        await this._hass.callService('switch', 'turn_off', {
+          entity_id: switchEntityId,
+        });
+        
+        console.log('[UniFi 2-Way Audio] Talkback switch turned off');
+      }
+      
     } catch (error) {
-      console.error('Error toggling talkback:', error);
+      console.error('[UniFi 2-Way Audio] Error toggling talkback:', error);
       this._statusText.textContent = 'Error toggling talkback';
+      // Clean up audio capture if error occurs
+      await this.stopAudioCapture();
+    }
+  }
+
+  async startAudioCapture() {
+    try {
+      console.log('[UniFi 2-Way Audio] Requesting microphone access...');
+      
+      // Request microphone access
+      this._mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 24000,  // Match camera sample rate
+        }
+      });
+      
+      console.log('[UniFi 2-Way Audio] Microphone access granted');
+      
+      // Set up MediaRecorder with Opus codec in WebM container
+      const mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        throw new Error(`MIME type ${mimeType} not supported`);
+      }
+      
+      this._mediaRecorder = new MediaRecorder(this._mediaStream, {
+        mimeType: mimeType,
+        audioBitsPerSecond: 24000,  // 24 kbps to match camera
+      });
+      
+      // Handle audio data chunks
+      this._mediaRecorder.ondataavailable = async (event) => {
+        if (event.data && event.data.size > 0) {
+          console.log(`[UniFi 2-Way Audio] Audio chunk captured: ${event.data.size} bytes`);
+          await this.sendAudioChunk(event.data);
+        }
+      };
+      
+      this._mediaRecorder.onerror = (event) => {
+        console.error('[UniFi 2-Way Audio] MediaRecorder error:', event.error);
+      };
+      
+      // Start recording - send chunks every 100ms for real-time streaming
+      this._mediaRecorder.start(100);
+      
+      console.log('[UniFi 2-Way Audio] Audio capture started - streaming to camera');
+      
+    } catch (error) {
+      console.error('[UniFi 2-Way Audio] Failed to start audio capture:', error);
+      this._statusText.textContent = 'Microphone access denied';
+      throw error;
+    }
+  }
+
+  async stopAudioCapture() {
+    console.log('[UniFi 2-Way Audio] Stopping audio capture...');
+    
+    // Stop media recorder
+    if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+      this._mediaRecorder.stop();
+      this._mediaRecorder = null;
+    }
+    
+    // Stop all tracks in the media stream
+    if (this._mediaStream) {
+      this._mediaStream.getTracks().forEach(track => {
+        track.stop();
+        console.log('[UniFi 2-Way Audio] Audio track stopped');
+      });
+      this._mediaStream = null;
+    }
+    
+    console.log('[UniFi 2-Way Audio] Audio capture stopped');
+  }
+
+  async sendAudioChunk(audioBlob) {
+    const switchEntityId = this.getSwitchEntityId();
+    
+    try {
+      // Convert Blob to base64
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const base64Audio = btoa(String.fromCharCode.apply(null, uint8Array));
+      
+      // Send audio chunk via websocket (compatible with assist pipeline)
+      await this._hass.connection.sendMessagePromise({
+        type: 'unifiprotect_2way_audio/stream_audio',
+        entity_id: switchEntityId,
+        audio_data: base64Audio,
+      });
+      
+      console.log(`[UniFi 2-Way Audio] Audio chunk sent via websocket: ${audioBlob.size} bytes`);
+      
+    } catch (error) {
+      console.error('[UniFi 2-Way Audio] Failed to send audio chunk:', error);
+      
+      // Fallback to service call if websocket fails
+      try {
+        await this._hass.callService('unifiprotect_2way_audio', 'send_audio', {
+          entity_id: switchEntityId,
+          audio_data: base64Audio,
+        });
+        console.log('[UniFi 2-Way Audio] Audio sent via service fallback');
+      } catch (fallbackError) {
+        console.error('[UniFi 2-Way Audio] Service fallback also failed:', fallbackError);
+      }
     }
   }
 

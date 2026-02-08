@@ -13,3 +13,20 @@ turn_off:
     entity:
       domain: switch
       integration: unifiprotect_2way_audio
+
+send_audio:
+  name: Send Audio Data
+  description: Send audio data chunk to active talkback session
+  target:
+    entity:
+      domain: switch
+      integration: unifiprotect_2way_audio
+  fields:
+    audio_data:
+      name: Audio Data
+      description: Base64-encoded audio data (WebM/Opus format)
+      required: true
+      example: "GkXfo59ChoEBQveBAULygQRC84EIQoKEd0..."
+      selector:
+        text:
+          multiline: false
