@@ -18,7 +18,6 @@ from homeassistant.helpers.entity_platform import (
     async_get_current_platform,
 )
 from homeassistant.util import dt as dt_util
-
 from uiprotect.data.devices import Camera as UPCamera
 from uiprotect.stream import TalkbackSession
 
@@ -409,7 +408,9 @@ class TalkbackSwitch(SwitchEntity):
             if hasattr(self._protect_camera, "_api"):
                 api = self._protect_camera._api
 
-                session = await api.create_talkback_session_public(self._protect_camera.id)
+                session = await api.create_talkback_session_public(
+                    self._protect_camera.id
+                )
 
                 # Validate the session object exists
                 if session is None:
@@ -615,6 +616,26 @@ class TalkbackSwitch(SwitchEntity):
             output_stream: Audio stream in the container
             target_sample_rate: Target sample rate for output
         """
+        # Validate audio data before processing
+        if not audio_data or len(audio_data) == 0:
+            _LOGGER.debug(
+                "Skipping empty audio chunk for %s",
+                self._camera_entity_id,
+            )
+            return
+
+        # WebM container requires minimum size for valid header
+        # Skip chunks that are too small to be valid WebM data
+        MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM header
+        if len(audio_data) < MIN_WEBM_SIZE:
+            _LOGGER.debug(
+                "Skipping undersized audio chunk for %s - size: %d bytes (minimum: %d)",
+                self._camera_entity_id,
+                len(audio_data),
+                MIN_WEBM_SIZE,
+            )
+            return
+
         try:
             # Decode incoming audio (WebM/Opus from browser)
             input_container = av.open(io.BytesIO(audio_data))
@@ -668,6 +689,18 @@ class TalkbackSwitch(SwitchEntity):
 
             # Update entity state
             self.async_write_ha_state()
+
+        except (av.error.InvalidDataError, av.error.EOFError) as err:
+            # Handle invalid/incomplete audio data gracefully
+            # This is expected when browser sends partial chunks
+            _LOGGER.debug(
+                "Skipping invalid audio chunk for %s - size: %d bytes, error: %s",
+                self._camera_entity_id,
+                len(audio_data),
+                str(err),
+            )
+            # Don't increment error counter for expected invalid chunks
+            return
 
         except Exception as err:
             _LOGGER.error(
