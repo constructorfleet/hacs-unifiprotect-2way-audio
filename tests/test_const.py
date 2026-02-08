@@ -1,17 +1,17 @@
 """Test constants for the UniFi Protect 2-Way Audio integration."""
 
 from custom_components.unifiprotect_2way_audio.const import (
+    ATTR_AUDIO_DATA,
+    ATTR_CAMERA_ID,
+    ATTR_CHANNELS,
+    ATTR_SAMPLE_RATE,
+    DEFAULT_CHANNELS,
+    DEFAULT_SAMPLE_RATE,
     DOMAIN,
     NAME,
     SERVICE_START_TALKBACK,
     SERVICE_STOP_TALKBACK,
     SERVICE_TOGGLE_MUTE,
-    ATTR_CAMERA_ID,
-    ATTR_AUDIO_DATA,
-    ATTR_SAMPLE_RATE,
-    ATTR_CHANNELS,
-    DEFAULT_SAMPLE_RATE,
-    DEFAULT_CHANNELS,
 )
 
 

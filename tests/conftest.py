@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 
@@ -18,6 +19,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 def mock_config_entry():
     """Return a mock config entry."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.unifiprotect_2way_audio.const import DOMAIN
 
     return MockConfigEntry(
@@ -86,8 +88,8 @@ def mock_protect_data():
 def mock_stream_manager():
     """Return a mock stream config manager."""
     from custom_components.unifiprotect_2way_audio.manager import StreamConfigManager
-    
-    with patch.object(StreamConfigManager, "build_entities") as mock_build:
+
+    with patch.object(StreamConfigManager, "build_entities"):
         manager = StreamConfigManager(MagicMock())
         manager._devices = {}
         yield manager
