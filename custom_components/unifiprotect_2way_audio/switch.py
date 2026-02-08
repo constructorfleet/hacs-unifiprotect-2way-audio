@@ -328,8 +328,8 @@ class TalkbackSwitch(SwitchEntity):
             _LOGGER.info(
                 "Talkback session created for %s - RTP URL: %s, codec: %s",
                 self._camera_entity_id,
-                self._talkback_session.get("url", "unknown"),
-                self._talkback_session.get("codec", "unknown"),
+                getattr(self._talkback_session, "url", "unknown"),
+                getattr(self._talkback_session, "codec", "unknown"),
             )
 
         except Exception as err:
@@ -393,14 +393,14 @@ class TalkbackSwitch(SwitchEntity):
                 exc_info=True,
             )
 
-    async def _create_talkback_session(self) -> dict[str, Any] | None:
+    async def _create_talkback_session(self) -> Any | None:
         """Create a talkback session with the camera.
 
-        Returns dict with session info:
+        Returns a TalkbackSession object from uiprotect library with attributes:
             - url: RTP streaming URL
             - codec: Audio codec (typically 'opus')
-            - samplingRate: Sampling rate in Hz
-            - bitsPerSample: Bits per sample
+            - sampling_rate: Sampling rate in Hz
+            - bits_per_sample: Bits per sample
         """
         try:
             if not self._protect_camera:
@@ -408,21 +408,22 @@ class TalkbackSwitch(SwitchEntity):
                 return None
 
             # Use the camera device's create_talkback_stream method
+            # This returns a TalkbackSession object with session details
             if hasattr(self._protect_camera, "create_talkback_stream"):
                 session = await self._protect_camera.create_talkback_stream()
                 
-                # Validate the session object is a non-empty dict
-                if not isinstance(session, dict) or not session:
+                # Validate the session object exists
+                if session is None:
                     _LOGGER.error(
-                        "create_talkback_stream returned invalid response: %s (type: %s)",
-                        session,
-                        type(session)
+                        "create_talkback_stream returned None"
                     )
                     return None
                     
                 _LOGGER.debug(
-                    "Talkback session created: %s",
-                    session,
+                    "Talkback session created - type: %s, url: %s, codec: %s",
+                    type(session).__name__,
+                    getattr(session, "url", "unknown"),
+                    getattr(session, "codec", "unknown"),
                 )
                 return session
             else:
@@ -505,9 +506,10 @@ class TalkbackSwitch(SwitchEntity):
             if not self._talkback_session:
                 raise RuntimeError("No talkback session available")
 
-            rtp_url = self._talkback_session.get("url")
-            codec_name = self._talkback_session.get("codec", "opus")
-            sample_rate = self._talkback_session.get("samplingRate", 24000)
+            # Access session attributes (TalkbackSession object from uiprotect)
+            rtp_url = getattr(self._talkback_session, "url", None)
+            codec_name = getattr(self._talkback_session, "codec", "opus")
+            sample_rate = getattr(self._talkback_session, "sampling_rate", 24000)
 
             if not rtp_url:
                 raise RuntimeError("No RTP URL in talkback session")
