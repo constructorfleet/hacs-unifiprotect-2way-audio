@@ -212,7 +212,7 @@ class Unifi2WayAudio extends HTMLElement {
     this._stream.stateObj = stateObj;
     this._stream.controls = false;
 
-    container.appendChild(stream);
+    container.appendChild(this._stream);
     this._lastCameraId = cameraEntityId;
   }
 
