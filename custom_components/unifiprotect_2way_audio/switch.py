@@ -411,14 +411,14 @@ class TalkbackSwitch(SwitchEntity):
             # This returns a TalkbackSession object with session details
             if hasattr(self._protect_camera, "create_talkback_stream"):
                 session = await self._protect_camera.create_talkback_stream()
-                
+
                 # Validate the session object exists
                 if session is None:
                     _LOGGER.error(
                         "create_talkback_stream returned None"
                     )
                     return None
-                    
+
                 _LOGGER.debug(
                     "Talkback session created - type: %s, url: %s, codec: %s",
                     type(session).__name__,
