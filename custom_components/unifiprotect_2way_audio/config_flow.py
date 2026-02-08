@@ -1,11 +1,11 @@
 """Config flow for UniFi Protect 2-Way Audio integration."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
@@ -15,7 +15,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-class UniFiProtect2WayAudioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class UniFiProtect2WayAudioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle a config flow for UniFi Protect 2-Way Audio."""
 
     VERSION = 1

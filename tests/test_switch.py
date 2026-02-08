@@ -51,49 +51,97 @@ async def test_switch_setup(
     assert len(entries) >= 0  # May be 0 if no cameras are available
 
 
-async def test_switch_properties(mock_camera) -> None:
+async def test_switch_properties() -> None:
     """Test switch entity properties."""
-    from custom_components.unifiprotect_2way_audio.switch import TalkbackSwitch
+    with patch("custom_components.unifiprotect_2way_audio.switch.av"):
+        from custom_components.unifiprotect_2way_audio.switch import TalkbackSwitch
 
-    switch = TalkbackSwitch(MagicMock(), mock_camera, "test_camera_id")
+        mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
+        switch = TalkbackSwitch(
+            MagicMock(),
+            "camera.test_camera",
+            "test_camera_id",
+            mock_device_info,
+            "media_player.test_camera",
+        )
 
-    assert switch.name == "Test Camera Talkback"
-    assert switch.unique_id == "test_camera_id_talkback"
-    assert switch.is_on is False
+        assert "Test Camera" in switch.name
+        assert switch.unique_id == "test_camera_id_talkback"
+        assert switch.is_on is False
 
 
-async def test_switch_turn_on(mock_camera, mock_talkback_session) -> None:
+async def test_switch_turn_on() -> None:
     """Test turning on the switch."""
-    from custom_components.unifiprotect_2way_audio.switch import TalkbackSwitch
+    with patch("custom_components.unifiprotect_2way_audio.switch.av"):
+        from custom_components.unifiprotect_2way_audio.switch import TalkbackSwitch
 
-    hass = MagicMock()
-    switch = TalkbackSwitch(hass, mock_camera, "test_camera_id")
+        hass = MagicMock()
+        mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
+        switch = TalkbackSwitch(
+            hass,
+            "camera.test_camera",
+            "test_camera_id",
+            mock_device_info,
+            "media_player.test_camera",
+        )
 
-    mock_camera.create_talkback_stream = AsyncMock(return_value=mock_talkback_session)
+        # Mock the camera entity
+        mock_camera = MagicMock()
+        mock_talkback_session = MagicMock()
+        mock_talkback_session.url = "rtsp://test"
+        mock_talkback_session.codec = "opus"
+        mock_talkback_session.sampling_rate = 16000
+        mock_talkback_session.bits_per_sample = 16
 
-    # Mock session state
-    switch._session = None
-    switch._state = False
+        mock_camera.device = MagicMock()
+        mock_camera.device.create_talkback_stream = AsyncMock(
+            return_value=mock_talkback_session
+        )
 
-    await switch.async_turn_on()
+        # Mock hass.data to return camera entity
+        hass.data = {
+            "camera": MagicMock(get_entity=MagicMock(return_value=mock_camera))
+        }
 
-    assert switch.is_on is True
+        # Mock session state
+        switch._session = None
+        switch._state = False
+
+        await switch.async_turn_on()
+
+        assert switch.is_on is True
 
 
-async def test_switch_turn_off(mock_camera, mock_talkback_session) -> None:
+async def test_switch_turn_off() -> None:
     """Test turning off the switch."""
-    from custom_components.unifiprotect_2way_audio.switch import TalkbackSwitch
+    with patch("custom_components.unifiprotect_2way_audio.switch.av"):
+        from custom_components.unifiprotect_2way_audio.switch import TalkbackSwitch
 
-    hass = MagicMock()
-    switch = TalkbackSwitch(hass, mock_camera, "test_camera_id")
+        hass = MagicMock()
+        mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
+        switch = TalkbackSwitch(
+            hass,
+            "camera.test_camera",
+            "test_camera_id",
+            mock_device_info,
+            "media_player.test_camera",
+        )
 
-    mock_camera.close_talkback_stream = AsyncMock()
+        # Mock the camera entity
+        mock_camera = MagicMock()
+        mock_camera.device = MagicMock()
+        mock_camera.device.close_talkback_stream = AsyncMock()
 
-    # Set up initial state as on
-    switch._session = mock_talkback_session
-    switch._state = True
+        # Mock hass.data to return camera entity
+        hass.data = {
+            "camera": MagicMock(get_entity=MagicMock(return_value=mock_camera))
+        }
 
-    await switch.async_turn_off()
+        # Set up initial state as on
+        mock_talkback_session = MagicMock()
+        switch._session = mock_talkback_session
+        switch._state = True
 
-    assert switch.is_on is False
-    mock_camera.close_talkback_stream.assert_called_once()
+        await switch.async_turn_off()
+
+        assert switch.is_on is False

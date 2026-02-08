@@ -7,14 +7,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 
 from custom_components.unifiprotect_2way_audio.const import DOMAIN
 
 
 async def test_setup(hass: HomeAssistant) -> None:
     """Test the integration setup."""
-    result = await hass.async_setup_component(DOMAIN, {})
-    assert result is True
+    with patch(
+        "custom_components.unifiprotect_2way_audio.async_register_websocket_handlers"
+    ), patch(
+        "custom_components.unifiprotect_2way_audio.register_static_path",
+        new_callable=AsyncMock,
+    ), patch(
+        "custom_components.unifiprotect_2way_audio.init_resource",
+        new_callable=AsyncMock,
+    ):
+        result = await async_setup_component(hass, DOMAIN, {})
+        assert result is True
 
 
 async def test_setup_entry(
@@ -86,5 +96,5 @@ async def test_setup_with_failed_resource_registration(
     ), patch(
         "custom_components.unifiprotect_2way_audio.async_register_websocket_handlers"
     ):
-        result = await hass.async_setup_component(DOMAIN, {})
+        result = await async_setup_component(hass, DOMAIN, {})
         assert result is True

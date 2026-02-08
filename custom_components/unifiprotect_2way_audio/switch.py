@@ -1,4 +1,5 @@
 """Switch platform for UniFi Protect 2-Way Audio backchannel control."""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,7 +9,6 @@ import logging
 from typing import Any
 
 import av
-
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -321,9 +321,7 @@ class TalkbackSwitch(SwitchEntity):
             self._talkback_session = await self._create_talkback_session()
 
             if not self._talkback_session:
-                raise RuntimeError(
-                    "Failed to create talkback session with camera"
-                )
+                raise RuntimeError("Failed to create talkback session with camera")
 
             _LOGGER.info(
                 "Talkback session created for %s - RTP URL: %s, codec: %s",
@@ -341,12 +339,8 @@ class TalkbackSwitch(SwitchEntity):
             raise
 
         # Start the backchannel streaming task
-        self._backchannel_task = asyncio.create_task(
-            self._run_backchannel_session()
-        )
-        _LOGGER.debug(
-            "Backchannel task created for %s", self._camera_entity_id
-        )
+        self._backchannel_task = asyncio.create_task(self._run_backchannel_session())
+        _LOGGER.debug("Backchannel task created for %s", self._camera_entity_id)
 
     async def _get_protect_camera(self) -> None:
         """Get the UniFi Protect camera object from the integration."""
@@ -414,9 +408,7 @@ class TalkbackSwitch(SwitchEntity):
 
                 # Validate the session object exists
                 if session is None:
-                    _LOGGER.error(
-                        "create_talkback_stream returned None"
-                    )
+                    _LOGGER.error("create_talkback_stream returned None")
                     return None
 
                 _LOGGER.debug(
@@ -427,9 +419,7 @@ class TalkbackSwitch(SwitchEntity):
                 )
                 return session
             else:
-                _LOGGER.error(
-                    "Camera device does not support create_talkback_stream"
-                )
+                _LOGGER.error("Camera device does not support create_talkback_stream")
                 return None
 
         except Exception as err:
@@ -457,9 +447,7 @@ class TalkbackSwitch(SwitchEntity):
 
         # Stop the streaming task first
         if self._backchannel_task and not self._backchannel_task.done():
-            _LOGGER.debug(
-                "Cancelling backchannel task for %s", self._camera_entity_id
-            )
+            _LOGGER.debug("Cancelling backchannel task for %s", self._camera_entity_id)
             self._backchannel_task.cancel()
             try:
                 await self._backchannel_task
@@ -481,9 +469,7 @@ class TalkbackSwitch(SwitchEntity):
                     await self._protect_camera.close_talkback_stream()
                     _LOGGER.debug("Talkback session closed")
             except Exception as err:
-                _LOGGER.warning(
-                    "Error closing talkback session: %s", err
-                )
+                _LOGGER.warning("Error closing talkback session: %s", err)
 
         # Clear session data
         self._talkback_session = None
@@ -569,11 +555,9 @@ class TalkbackSwitch(SwitchEntity):
                         sample_rate,
                     )
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # No audio data received, send silence to keep stream alive
-                    _LOGGER.debug(
-                        "No audio data for 5s, sending keepalive"
-                    )
+                    _LOGGER.debug("No audio data for 5s, sending keepalive")
                     continue
                 except Exception as err:
                     _LOGGER.error(
