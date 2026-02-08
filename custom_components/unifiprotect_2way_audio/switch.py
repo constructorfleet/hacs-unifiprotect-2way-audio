@@ -370,7 +370,8 @@ class TalkbackSwitch(SwitchEntity):
                 )
                 return
 
-            # The uiprotect.data.Camera is stored as .device on the CameraEntity
+            # The uiprotect.data.Camera object is stored as .device on the CameraEntity
+            # This is the actual camera device from the uiprotect library, not a HA device
             if not hasattr(camera_entity, "device") or camera_entity.device is None:
                 _LOGGER.warning(
                     "Camera entity %s does not have device attribute or device is None",
@@ -409,6 +410,19 @@ class TalkbackSwitch(SwitchEntity):
             # Use the camera device's create_talkback_stream method
             if hasattr(self._protect_camera, "create_talkback_stream"):
                 session = await self._protect_camera.create_talkback_stream()
+                
+                # Validate the session object
+                if not session:
+                    _LOGGER.error("create_talkback_stream returned None or empty")
+                    return None
+                    
+                if not isinstance(session, dict):
+                    _LOGGER.error(
+                        "create_talkback_stream returned invalid type: %s",
+                        type(session)
+                    )
+                    return None
+                    
                 _LOGGER.debug(
                     "Talkback session created: %s",
                     session,
