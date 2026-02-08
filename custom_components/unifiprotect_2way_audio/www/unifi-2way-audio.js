@@ -300,13 +300,27 @@ class Unifi2WayAudio extends HTMLElement {
     // Determine if muted from media_player state
     const isMuted = mediaPlayerState ? mediaPlayerState.attributes.is_volume_muted === true : false;
 
+    // Log state changes for debugging
+    if (isTalkbackActive !== this._isTalkbackActive) {
+      console.log('[UniFi 2-Way Audio] Talkback state changed:', {
+        entity: switchEntityId,
+        state: isTalkbackActive ? 'active' : 'inactive',
+        session_state: switchState?.attributes?.session_state,
+        audio_packets_sent: switchState?.attributes?.audio_packets_sent || 0,
+        audio_bytes_sent: switchState?.attributes?.audio_bytes_sent || 0,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Update talkback button state
     if (isTalkbackActive !== this._isTalkbackActive) {
       this._isTalkbackActive = isTalkbackActive;
       if (isTalkbackActive) {
         this._talkbackButton.classList.add('recording');
+        console.log('[UniFi 2-Way Audio] Audio transmission ACTIVE - microphone data should be flowing to camera');
       } else {
         this._talkbackButton.classList.remove('recording');
+        console.log('[UniFi 2-Way Audio] Audio transmission INACTIVE - no audio data being sent');
       }
     }
 
@@ -373,13 +387,34 @@ class Unifi2WayAudio extends HTMLElement {
     // Get switch entity ID
     const switchEntityId = this.getSwitchEntityId();
     
+    // Get current state for logging
+    const switchState = this._hass.states[switchEntityId];
+    const currentState = switchState ? switchState.state : 'unknown';
+    
+    console.log('[UniFi 2-Way Audio] Toggling talkback switch:', {
+      entity: switchEntityId,
+      currentState: currentState,
+      nextState: currentState === 'on' ? 'off' : 'on',
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       // Toggle the switch entity
       await this._hass.callService('switch', 'toggle', {
         entity_id: switchEntityId,
       });
+      
+      console.log('[UniFi 2-Way Audio] Talkback toggle service called successfully');
+      
+      // Log audio transmission state change
+      if (currentState === 'off') {
+        console.log('[UniFi 2-Way Audio] Audio transmission starting - backchannel opening');
+      } else {
+        console.log('[UniFi 2-Way Audio] Audio transmission stopping - backchannel closing');
+      }
+      
     } catch (error) {
-      console.error('Error toggling talkback:', error);
+      console.error('[UniFi 2-Way Audio] Error toggling talkback:', error);
       this._statusText.textContent = 'Error toggling talkback';
     }
   }
