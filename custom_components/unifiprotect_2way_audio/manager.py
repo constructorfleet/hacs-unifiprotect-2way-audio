@@ -1,13 +1,13 @@
 """Manager for UniFi Protect 2-Way Audio camera stream configuration."""
+
 from __future__ import annotations
 
-
 import logging
-
 from typing import TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er, device_registry as dr
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 
 if TYPE_CHECKING:
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 
 _LOGGER = logging.getLogger(__name__)
-
 
 
 class Unifi2WayAudioDevice:
@@ -49,16 +48,15 @@ class StreamConfigManager:
         device_registry = dr.async_get(hass)
         unifi_entities = [
             entity
-            for entity
-            in entity_registry.entities.values()
-            if entity.platform == "unifiprotect" \
-                and not entity.disabled \
-                and not entity.hidden \
-                and entity.domain in ("camera", "media_player")
+            for entity in entity_registry.entities.values()
+            if entity.platform == "unifiprotect"
+            and not entity.disabled
+            and not entity.hidden
+            and entity.domain in ("camera", "media_player")
         ]
 
         # Group entities by device_id
-        entities_by_device = {}
+        entities_by_device: dict[str, list] = {}
         for entity in unifi_entities:
             if entity.device_id not in entities_by_device:
                 entities_by_device[entity.device_id] = []
@@ -76,7 +74,7 @@ class StreamConfigManager:
                 connections=unifi_device.connections,
             )
 
-            camera_entity = [e for e in entities if e.domain == "camera"][0]
+            camera_entity = next(e for e in entities if e.domain == "camera")
             media_player_entities = [e for e in entities if e.domain == "media_player"]
 
             # Create switch entity for talkback control
@@ -85,7 +83,9 @@ class StreamConfigManager:
                 camera_entity.entity_id,
                 camera_entity.unique_id,
                 device_info,
-                None if not media_player_entities else media_player_entities[0].entity_id
+                None
+                if not media_player_entities
+                else media_player_entities[0].entity_id,
             )
             _LOGGER.debug(
                 "Created switch entity for camera: %s",
@@ -96,7 +96,9 @@ class StreamConfigManager:
             self._devices[camera_entity.unique_id] = Unifi2WayAudioDevice(
                 switch,
                 camera_entity.entity_id,
-                None if not media_player_entities else media_player_entities[0].entity_id
+                None
+                if not media_player_entities
+                else media_player_entities[0].entity_id,
             )
 
     def get_devices(self) -> list[Unifi2WayAudioDevice]:

@@ -1,4 +1,5 @@
 """Websocket API for UniFi Protect 2-Way Audio."""
+
 from __future__ import annotations
 
 import base64
@@ -6,7 +7,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
@@ -69,7 +69,7 @@ async def handle_stream_audio(
 
         # Find the switch entity instance
         switch_entity = None
-        for entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
+        for _entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
             if isinstance(entry_data, dict) and "manager" in entry_data:
                 manager = entry_data["manager"]
                 for device in manager.get_devices():

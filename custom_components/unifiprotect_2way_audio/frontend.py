@@ -1,5 +1,7 @@
 """Frontend utilities for UniFi Protect 2-Way Audio."""
+
 import logging
+
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.const import MAJOR_VERSION, MINOR_VERSION
@@ -39,7 +41,8 @@ async def init_resource(hass: HomeAssistant, url: str, ver: str) -> bool:
         if hasattr(lovelace, "resources"):
             resources: ResourceStorageCollection = lovelace.resources
         elif isinstance(lovelace, dict):
-            resources: ResourceStorageCollection = lovelace.get("resources")
+            resources_from_dict: ResourceStorageCollection = lovelace.get("resources")
+            resources = resources_from_dict
         else:
             _LOGGER.warning("Lovelace resources not accessible")
             return False

@@ -1,17 +1,17 @@
 """The UniFi Protect 2-Way Audio integration."""
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
-from .frontend import register_static_path, init_resource
+from .frontend import init_resource, register_static_path
 from .manager import StreamConfigManager
 from .websocket_api import async_register_websocket_handlers
 
@@ -36,7 +36,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         await register_static_path(
             hass,
             "/unifiprotect_2way_audio/unifi-2way-audio.js",
-            str(path / "unifi-2way-audio.js")
+            str(path / "unifi-2way-audio.js"),
         )
 
         # Get version from integration metadata
@@ -46,9 +46,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
         # Add card to resources
         await init_resource(
-            hass,
-            "/unifiprotect_2way_audio/unifi-2way-audio.js",
-            str(version)
+            hass, "/unifiprotect_2way_audio/unifi-2way-audio.js", str(version)
         )
         _LOGGER.info(
             "Registered UniFi Protect 2-Way Audio card resources (v%s)",
