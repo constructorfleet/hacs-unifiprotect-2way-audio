@@ -357,6 +357,10 @@ class TalkbackSwitch(SwitchEntity):
                 return
 
             camera_component = self.hass.data["camera"]
+            if not hasattr(camera_component, "get_entity"):
+                _LOGGER.warning("Camera component does not have get_entity method")
+                return
+
             camera_entity = camera_component.get_entity(self._camera_entity_id)
 
             if not camera_entity:
@@ -367,9 +371,9 @@ class TalkbackSwitch(SwitchEntity):
                 return
 
             # The uiprotect.data.Camera is stored as .device on the CameraEntity
-            if not hasattr(camera_entity, "device"):
+            if not hasattr(camera_entity, "device") or camera_entity.device is None:
                 _LOGGER.warning(
-                    "Camera entity %s does not have device attribute",
+                    "Camera entity %s does not have device attribute or device is None",
                     self._camera_entity_id,
                 )
                 return
