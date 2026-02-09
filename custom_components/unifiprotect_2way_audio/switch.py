@@ -631,15 +631,16 @@ class TalkbackSwitch(SwitchEntity):
             return
 
         # WebM container requires minimum size for valid header
-        # Skip chunks that are too small to be valid WebM data
+        # Warn about undersized chunks but still attempt to process them
+        # Some browsers may send smaller chunks that are still valid
         if len(audio_data) < MIN_WEBM_SIZE:
-            _LOGGER.debug(
-                "Skipping undersized audio chunk for %s - size: %d bytes (minimum: %d)",
+            _LOGGER.warning(
+                "Processing undersized audio chunk for %s - size: %d bytes (expected minimum: %d)",
                 self._camera_entity_id,
                 len(audio_data),
                 MIN_WEBM_SIZE,
             )
-            return
+            # Continue processing instead of returning early
 
         try:
             # Decode incoming audio (WebM/Opus from browser)
@@ -696,15 +697,16 @@ class TalkbackSwitch(SwitchEntity):
             self.async_write_ha_state()
 
         except (av.error.InvalidDataError, av.error.EOFError) as err:
-            # Handle invalid/incomplete audio data gracefully
-            # This is expected when browser sends partial chunks
-            _LOGGER.debug(
-                "Skipping invalid audio chunk for %s - size: %d bytes, error: %s",
+            # Log invalid/incomplete audio data as warnings since they prevent transmission
+            # These errors may indicate issues with the audio stream from the browser
+            _LOGGER.warning(
+                "Failed to process audio chunk for %s - size: %d bytes, error: %s. "
+                "This chunk will be skipped. If this happens frequently, check MediaRecorder settings.",
                 self._camera_entity_id,
                 len(audio_data),
                 str(err),
             )
-            # Don't increment error counter for expected invalid chunks
+            self._transmission_errors += 1
             return
 
         except Exception as err:
