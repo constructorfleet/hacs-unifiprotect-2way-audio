@@ -113,12 +113,17 @@ async def test_process_audio_empty_data() -> None:
 
 
 async def test_process_audio_undersized_data() -> None:
-    """Test that undersized audio data is skipped gracefully."""
-    with patch("custom_components.unifiprotect_2way_audio.switch.av"):
+    """Test that undersized audio data is still processed with warning."""
+    # Mock av module to trigger InvalidDataError when processing invalid data
+    with patch("custom_components.unifiprotect_2way_audio.switch.av") as mock_av:
+        # Configure mock to raise InvalidDataError when opening undersized data
+        import av
+
         from custom_components.unifiprotect_2way_audio.switch import (
             MIN_WEBM_SIZE,
             TalkbackSwitch,
         )
+        mock_av.open.side_effect = av.error.InvalidDataError(-1094995529, "Invalid data")
 
         hass = MagicMock()
         mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
@@ -134,6 +139,7 @@ async def test_process_audio_undersized_data() -> None:
         mock_output_stream = MagicMock()
 
         # Test with undersized data (less than MIN_WEBM_SIZE)
+        # This will still be processed but will fail due to invalid format
         small_data = b"x" * (MIN_WEBM_SIZE - 20)
         await switch._process_and_stream_audio(
             small_data,
@@ -142,8 +148,9 @@ async def test_process_audio_undersized_data() -> None:
             24000,
         )
 
-        # Verify no errors and container was not used
-        assert switch._transmission_errors == 0
+        # Undersized data will be attempted to process but will fail with InvalidDataError
+        # Error counter should be incremented
+        assert switch._transmission_errors == 1
         assert switch._audio_packets_sent == 0
 
 
@@ -182,6 +189,6 @@ async def test_process_audio_invalid_webm() -> None:
             24000,
         )
 
-        # Verify no transmission errors incremented (since this is expected)
-        assert switch._transmission_errors == 0
+        # Verify transmission errors incremented (invalid data now counts as error)
+        assert switch._transmission_errors == 1
         assert switch._audio_packets_sent == 0
