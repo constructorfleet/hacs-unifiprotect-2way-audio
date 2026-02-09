@@ -114,13 +114,16 @@ async def test_process_audio_empty_data() -> None:
 
 async def test_process_audio_undersized_data() -> None:
     """Test that undersized audio data is still processed with warning."""
-    import av
+    # Mock av module to trigger InvalidDataError when processing invalid data
+    with patch("custom_components.unifiprotect_2way_audio.switch.av") as mock_av:
+        # Configure mock to raise InvalidDataError when opening undersized data
+        import av
 
-    with patch("custom_components.unifiprotect_2way_audio.switch.av", av):
         from custom_components.unifiprotect_2way_audio.switch import (
             MIN_WEBM_SIZE,
             TalkbackSwitch,
         )
+        mock_av.open.side_effect = av.error.InvalidDataError(-1094995529, "Invalid data")
 
         hass = MagicMock()
         mock_device_info = {"identifiers": {("unifiprotect", "test_camera_id")}}
