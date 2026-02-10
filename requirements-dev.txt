@@ -1,5 +1,5 @@
 # Testing - includes pytest, pytest-asyncio, pytest-cov, and Home Assistant dependencies
-pytest-homeassistant-custom-component==0.13.195
+pytest-homeassistant-custom-component==0.13.314
 
 # Integration-specific dependencies
 av==16.1.0
