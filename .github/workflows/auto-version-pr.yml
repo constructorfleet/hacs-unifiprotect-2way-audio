@@ -1,0 +1,107 @@
+name: Auto Version PR
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-version-pr-main
+  cancel-in-progress: false
+
+jobs:
+  create-version-pr:
+    name: Create Version Bump PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check whether manifest changed in this push
+        id: manifest_change
+        shell: bash
+        run: |
+          set -euo pipefail
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          MANIFEST_PATH="custom_components/unifiprotect_2way_audio/manifest.json"
+
+          if [[ "$BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+            BEFORE="$(git rev-parse "${AFTER}^" 2>/dev/null || true)"
+          fi
+
+          if [[ -z "${BEFORE:-}" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --name-only "$BEFORE" "$AFTER" | grep -qx "$MANIFEST_PATH"; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop when manifest already changed
+        if: steps.manifest_change.outputs.changed == 'true'
+        run: echo "manifest.json changed in this push; skipping auto version PR."
+
+      - name: Calculate next version and update manifest
+        if: steps.manifest_change.outputs.changed != 'true'
+        id: bump
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          manifest_path = Path("custom_components/unifiprotect_2way_audio/manifest.json")
+          pyproject_path = Path("pyproject.toml")
+          data = json.loads(manifest_path.read_text())
+          version = data["version"]
+          parts = version.split(".")
+          if len(parts) != 3:
+              raise ValueError(f"Expected semantic version 'X.Y.Z', got: {version}")
+
+          major, minor, patch = (int(x) for x in parts)
+          next_version = f"{major}.{minor}.{patch + 1}"
+          data["version"] = next_version
+          manifest_path.write_text(json.dumps(data, indent=2) + "\n")
+
+          pyproject_text = pyproject_path.read_text()
+          pattern = re.compile(
+              r"(?ms)^(\[project\]\s.*?^version\s*=\s*\")([0-9]+\.[0-9]+\.[0-9]+)(\".*?$)"
+          )
+          new_pyproject_text, count = pattern.subn(
+              rf"\1{next_version}\3", pyproject_text, count=1
+          )
+          if count != 1:
+              raise RuntimeError("Could not update [project].version in pyproject.toml")
+          pyproject_path.write_text(new_pyproject_text)
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as out:
+              out.write(f"next_version={next_version}\n")
+          PY
+
+      - name: Create pull request
+        if: steps.manifest_change.outputs.changed != 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: bump manifest version to ${{ steps.bump.outputs.next_version }}"
+          branch: ${{ steps.bump.outputs.next_version }}
+          base: main
+          title: "chore: bump manifest version to ${{ steps.bump.outputs.next_version }}"
+          body: |
+            Automated version bump PR.
+
+            This PR was created because a merge landed on `main` without changes to `custom_components/unifiprotect_2way_audio/manifest.json`.
+          add-paths: |
+            custom_components/unifiprotect_2way_audio/manifest.json
+            pyproject.toml
