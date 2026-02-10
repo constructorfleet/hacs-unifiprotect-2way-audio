@@ -33,10 +33,14 @@ STATE_STOPPING = "stopping"
 STATE_ERROR = "error"
 
 # Audio processing constants
-# WebM container structure: EBML Header (typically 40-50 bytes) + Segment Header (~20-30 bytes)
-# Setting minimum to 50 bytes ensures we have at least the EBML header before attempting to parse
+# WebM container structure: EBML Header (typically 40-50 bytes) + Segment
+# Header (~20-30 bytes)
+# Setting minimum to 50 bytes ensures we have at least the EBML header before
+# attempting to parse
 # This prevents PyAV from failing on partial/incomplete MediaRecorder chunks
 MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM container with EBML header
+WEBM_EBML_HEADER = b"\x1a\x45\xdf\xa3"
+WEBM_CLUSTER_ID = b"\x1f\x43\xb6\x75"
 
 
 async def async_setup_entry(
@@ -143,6 +147,7 @@ class TalkbackSwitch(SwitchEntity):
         self._transmission_errors = 0
         self._last_transmission_time = None
         self._session_start_time = None
+        self._webm_init_segment: bytes | None = None
 
     @property
     def is_on(self) -> bool:
@@ -207,6 +212,7 @@ class TalkbackSwitch(SwitchEntity):
             self._transmission_errors = 0
             self._last_transmission_time = None
             self._session_start_time = dt_util.utcnow()
+            self._webm_init_segment = None
 
             self.async_write_ha_state()
 
@@ -372,8 +378,10 @@ class TalkbackSwitch(SwitchEntity):
                 )
                 return
 
-            # The uiprotect.data.Camera object is stored as .device on the CameraEntity
-            # This is the actual camera device from the uiprotect library, not a HA device
+            # The uiprotect.data.Camera object is stored as .device on the
+            # CameraEntity
+            # This is the actual camera device from the uiprotect library, not
+            #  a HA device
             if getattr(camera_entity, "device", None) is None:
                 _LOGGER.warning(
                     "Camera entity %s does not have device attribute or device is None",
@@ -635,25 +643,83 @@ class TalkbackSwitch(SwitchEntity):
         # Some browsers may send smaller chunks that are still valid
         if len(audio_data) < MIN_WEBM_SIZE:
             _LOGGER.warning(
-                "Attempting to process undersized audio chunk for %s - size: %d bytes (expected minimum: %d)",
+                "Attempting to process undersized audio chunk for %s - size:"
+                " %d bytes (expected minimum: %d)",
                 self._camera_entity_id,
                 len(audio_data),
                 MIN_WEBM_SIZE,
             )
             # Continue processing instead of returning early
 
-        try:
-            # Decode incoming audio (WebM/Opus from browser)
-            input_container = av.open(io.BytesIO(audio_data))
+        candidate_chunks = self._prepare_candidate_chunks(audio_data)
 
+        last_error: Exception | None = None
+
+        for idx, chunk in enumerate(candidate_chunks):
+            try:
+                self._decode_and_stream_chunk(
+                    chunk=chunk,
+                    output_container=output_container,
+                    output_stream=output_stream,
+                    target_sample_rate=target_sample_rate,
+                )
+                self._record_successful_chunk(len(audio_data))
+                return
+
+            except (av.error.InvalidDataError, av.error.EOFError) as err:
+                last_error = err
+                if idx == 0 and len(candidate_chunks) > 1:
+                    _LOGGER.debug(
+                        "Primary chunk decode failed for %s, retrying with"
+                        " cached WebM init segment: %s",
+                        self._camera_entity_id,
+                        err,
+                    )
+                    continue
+                break
+            except Exception as err:
+                _LOGGER.error(
+                    "Failed to process/stream audio: %s",
+                    err,
+                    exc_info=True,
+                )
+                self._transmission_errors += 1
+                raise
+
+        if last_error is not None:
+            self._handle_invalid_audio_chunk(audio_data, last_error)
+
+    def _prepare_candidate_chunks(self, audio_data: bytes) -> list[bytes]:
+        """Build decode candidates and cache WebM init segment when available."""
+        # MediaRecorder often emits one initialization segment and then cluster-only
+        # chunks. Cache the init segment and prepend it for cluster-only payloads.
+        candidate_chunks: list[bytes] = [audio_data]
+        if not audio_data.startswith(WEBM_EBML_HEADER) and self._webm_init_segment:
+            candidate_chunks.insert(0, self._webm_init_segment + audio_data)
+
+        if audio_data.startswith(WEBM_EBML_HEADER):
+            cluster_pos = audio_data.find(WEBM_CLUSTER_ID)
+            if cluster_pos > 0:
+                self._webm_init_segment = audio_data[:cluster_pos]
+
+        return candidate_chunks
+
+    def _decode_and_stream_chunk(
+        self,
+        chunk: bytes,
+        output_container: av.container.OutputContainer,
+        output_stream: av.audio.stream.AudioStream,
+        target_sample_rate: int,
+    ) -> None:
+        """Decode one WebM chunk and mux it to the RTP output stream."""
+        input_container = av.open(io.BytesIO(chunk), mode="r", format="webm")
+        try:
             for packet in input_container.demux():
                 for frame in packet.decode():
                     if not isinstance(frame, av.AudioFrame):
                         continue
 
-                    # Resample if needed
                     if frame.sample_rate != target_sample_rate:
-                        # Create resampler
                         resampler = av.AudioResampler(
                             format=output_stream.codec_context.format,
                             layout=output_stream.codec_context.layout,
@@ -661,62 +727,51 @@ class TalkbackSwitch(SwitchEntity):
                         )
                         frame = resampler.resample(frame)[0]
 
-                    # Encode and send to output stream
                     for output_packet in output_stream.encode(frame):
                         output_container.mux(output_packet)
-
+        finally:
             input_container.close()
 
-            # Update statistics
-            data_size = len(audio_data)
-            self._audio_bytes_sent += data_size
-            self._audio_packets_sent += 1
-            self._last_transmission_time = dt_util.utcnow().isoformat()
+    def _record_successful_chunk(self, data_size: int) -> None:
+        """Update per-session metrics after a successful transmit."""
+        self._audio_bytes_sent += data_size
+        self._audio_packets_sent += 1
+        self._last_transmission_time = dt_util.utcnow().isoformat()
 
-            _LOGGER.debug(
-                "Streamed audio chunk to %s - size: %d bytes, "
-                "total_packets: %d, total_bytes: %d",
+        _LOGGER.debug(
+            "Streamed audio chunk to %s - size: %d bytes, "
+            "total_packets: %d, total_bytes: %d",
+            self._camera_entity_id,
+            data_size,
+            self._audio_packets_sent,
+            self._audio_bytes_sent,
+        )
+
+        if self._audio_packets_sent % 100 == 0:
+            _LOGGER.info(
+                "Audio transmission stats for %s - "
+                "packets: %d, bytes: %d KB, errors: %d",
                 self._camera_entity_id,
-                data_size,
                 self._audio_packets_sent,
-                self._audio_bytes_sent,
+                self._audio_bytes_sent // 1024,
+                self._transmission_errors,
             )
 
-            # Log periodic statistics (every 100 packets)
-            if self._audio_packets_sent % 100 == 0:
-                _LOGGER.info(
-                    "Audio transmission stats for %s - "
-                    "packets: %d, bytes: %d KB, errors: %d",
-                    self._camera_entity_id,
-                    self._audio_packets_sent,
-                    self._audio_bytes_sent // 1024,
-                    self._transmission_errors,
-                )
+        self.async_write_ha_state()
 
-            # Update entity state
-            self.async_write_ha_state()
-
-        except (av.error.InvalidDataError, av.error.EOFError) as err:
-            # Log invalid/incomplete audio data as warnings since they prevent transmission
-            # These errors may indicate issues with audio encoding, network transmission, or browser settings
-            _LOGGER.warning(
-                "Failed to process audio chunk for %s - size: %d bytes, error: %s. "
-                "This chunk will be skipped. Possible causes: incomplete transmission, codec issues, or invalid audio format.",
-                self._camera_entity_id,
-                len(audio_data),
-                str(err),
-            )
-            self._transmission_errors += 1
-            return
-
-        except Exception as err:
-            _LOGGER.error(
-                "Failed to process/stream audio: %s",
-                err,
-                exc_info=True,
-            )
-            self._transmission_errors += 1
-            raise
+    def _handle_invalid_audio_chunk(self, audio_data: bytes, error: Exception) -> None:
+        """Track and log invalid/incomplete audio chunks that cannot be decoded."""
+        _LOGGER.warning(
+            "Failed to process audio chunk for %s - size: %d bytes,"
+            " error: %s. "
+            "This chunk will be skipped. Possible causes: incomplete"
+            " transmission, codec issues, or invalid audio format.",
+            self._camera_entity_id,
+            len(audio_data),
+            str(error),
+        )
+        self._transmission_errors += 1
+        return
 
     async def send_audio_data(self, audio_data: bytes) -> None:
         """Send audio data to the camera.
