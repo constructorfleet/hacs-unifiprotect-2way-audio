@@ -41,6 +41,8 @@ STATE_ERROR = "error"
 MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM container with EBML header
 WEBM_EBML_HEADER = b"\x1a\x45\xdf\xa3"
 WEBM_CLUSTER_ID = b"\x1f\x43\xb6\x75"
+WEBM_EBML_HEADER_TRUNC = b"\x45\xdf\xa3"
+WEBM_CLUSTER_ID_TRUNC = b"\x43\xb6\x75"
 OGG_CAPTURE_PATTERN = b"OggS"
 PCM_FORMAT = "pcm_s16le"
 
@@ -668,7 +670,8 @@ class TalkbackSwitch(SwitchEntity):
             )
             return
 
-        chunk_format = audio_format or self._detect_audio_format(audio_data)
+        normalized_audio_data = self._normalize_audio_chunk(audio_data, audio_format)
+        chunk_format = audio_format or self._detect_audio_format(normalized_audio_data)
         if chunk_format and chunk_format != self._input_audio_format:
             self._input_audio_format = chunk_format
             _LOGGER.info(
@@ -679,17 +682,17 @@ class TalkbackSwitch(SwitchEntity):
 
         # WebM-specific minimum-size warning.
         if (self._input_audio_format in (None, "webm")) and len(
-            audio_data
+            normalized_audio_data
         ) < MIN_WEBM_SIZE:
             _LOGGER.warning(
                 "Attempting to process undersized audio chunk for %s - size:"
                 " %d bytes (expected minimum: %d)",
                 self._camera_entity_id,
-                len(audio_data),
+                len(normalized_audio_data),
                 MIN_WEBM_SIZE,
             )
 
-        candidate_chunks = self._prepare_candidate_chunks(audio_data)
+        candidate_chunks = self._prepare_candidate_chunks(normalized_audio_data)
 
         last_error: Exception | None = None
 
@@ -703,7 +706,7 @@ class TalkbackSwitch(SwitchEntity):
                         target_sample_rate=target_sample_rate,
                         input_sample_rate=input_sample_rate,
                     )
-                    self._record_successful_chunk(len(audio_data))
+                    self._record_successful_chunk(len(normalized_audio_data))
                     return
 
                 self._decode_and_stream_chunk(
@@ -712,7 +715,7 @@ class TalkbackSwitch(SwitchEntity):
                     output_stream=output_stream,
                     target_sample_rate=target_sample_rate,
                 )
-                self._record_successful_chunk(len(audio_data))
+                self._record_successful_chunk(len(normalized_audio_data))
                 return
 
             except (av.error.InvalidDataError, av.error.EOFError) as err:
@@ -736,7 +739,7 @@ class TalkbackSwitch(SwitchEntity):
                 raise
 
         if last_error is not None:
-            self._handle_invalid_audio_chunk(audio_data, last_error)
+            self._handle_invalid_audio_chunk(normalized_audio_data, last_error)
 
     def _prepare_candidate_chunks(self, audio_data: bytes) -> list[bytes]:
         """Build decode candidates and cache WebM init segment when available."""
@@ -760,9 +763,24 @@ class TalkbackSwitch(SwitchEntity):
         """Detect input container from magic bytes."""
         if chunk.startswith(WEBM_EBML_HEADER):
             return "webm"
+        if chunk.startswith(WEBM_EBML_HEADER_TRUNC):
+            return "webm"
         if chunk.startswith(OGG_CAPTURE_PATTERN):
             return "ogg"
         return None
+
+    def _normalize_audio_chunk(
+        self, chunk: bytes, declared_format: str | None
+    ) -> bytes:
+        """Repair known malformed chunk prefixes from frontend transport quirks."""
+        if declared_format not in (None, "webm"):
+            return chunk
+
+        if chunk.startswith(WEBM_EBML_HEADER_TRUNC):
+            return b"\x1a" + chunk
+        if chunk.startswith(WEBM_CLUSTER_ID_TRUNC):
+            return b"\x1f" + chunk
+        return chunk
 
     def _process_pcm_and_stream_audio(
         self,
