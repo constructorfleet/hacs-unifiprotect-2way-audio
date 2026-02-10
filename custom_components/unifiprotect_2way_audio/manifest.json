@@ -1,22 +1,22 @@
 {
-    "domain": "unifiprotect_2way_audio",
-    "name": "UniFi Protect 2-Way Audio",
-    "version": "2.3.8",
-    "config_flow": true,
-    "documentation": "https://github.com/constructorfleet/hacs-unifiprotect-2way-audio",
-    "issue_tracker": "https://github.com/constructorfleet/hacs-unifiprotect-2way-audio/issues",
-    "codeowners": [
-        "@constructorfleet"
-    ],
-    "dependencies": [
-        "unifiprotect",
-        "frontend",
-        "http"
-    ],
-    "requirements": [
-        "av==16.0.1",
-        "uiprotect==10.1.0"
-    ],
-    "iot_class": "local_push",
-    "integration_type": "device"
+  "domain": "unifiprotect_2way_audio",
+  "name": "UniFi Protect 2-Way Audio",
+  "version": "2.3.9",
+  "config_flow": true,
+  "documentation": "https://github.com/constructorfleet/hacs-unifiprotect-2way-audio",
+  "issue_tracker": "https://github.com/constructorfleet/hacs-unifiprotect-2way-audio/issues",
+  "codeowners": [
+    "@constructorfleet"
+  ],
+  "dependencies": [
+    "unifiprotect",
+    "frontend",
+    "http"
+  ],
+  "requirements": [
+    "av==16.0.1",
+    "uiprotect==10.1.0"
+  ],
+  "iot_class": "local_push",
+  "integration_type": "device"
 }
