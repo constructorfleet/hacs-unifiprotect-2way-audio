@@ -33,8 +33,10 @@ STATE_STOPPING = "stopping"
 STATE_ERROR = "error"
 
 # Audio processing constants
-# WebM container structure: EBML Header (typically 40-50 bytes) + Segment Header (~20-30 bytes)
-# Setting minimum to 50 bytes ensures we have at least the EBML header before attempting to parse
+# WebM container structure: EBML Header (typically 40-50 bytes) + Segment
+# Header (~20-30 bytes)
+# Setting minimum to 50 bytes ensures we have at least the EBML header before
+# attempting to parse
 # This prevents PyAV from failing on partial/incomplete MediaRecorder chunks
 MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM container with EBML header
 WEBM_EBML_HEADER = b"\x1a\x45\xdf\xa3"
@@ -376,8 +378,10 @@ class TalkbackSwitch(SwitchEntity):
                 )
                 return
 
-            # The uiprotect.data.Camera object is stored as .device on the CameraEntity
-            # This is the actual camera device from the uiprotect library, not a HA device
+            # The uiprotect.data.Camera object is stored as .device on the
+            # CameraEntity
+            # This is the actual camera device from the uiprotect library, not
+            #  a HA device
             if getattr(camera_entity, "device", None) is None:
                 _LOGGER.warning(
                     "Camera entity %s does not have device attribute or device is None",
@@ -639,7 +643,8 @@ class TalkbackSwitch(SwitchEntity):
         # Some browsers may send smaller chunks that are still valid
         if len(audio_data) < MIN_WEBM_SIZE:
             _LOGGER.warning(
-                "Attempting to process undersized audio chunk for %s - size: %d bytes (expected minimum: %d)",
+                "Attempting to process undersized audio chunk for %s - size:"
+                " %d bytes (expected minimum: %d)",
                 self._camera_entity_id,
                 len(audio_data),
                 MIN_WEBM_SIZE,
@@ -665,7 +670,8 @@ class TalkbackSwitch(SwitchEntity):
                 last_error = err
                 if idx == 0 and len(candidate_chunks) > 1:
                     _LOGGER.debug(
-                        "Primary chunk decode failed for %s, retrying with cached WebM init segment: %s",
+                        "Primary chunk decode failed for %s, retrying with"
+                        " cached WebM init segment: %s",
                         self._camera_entity_id,
                         err,
                     )
@@ -756,8 +762,10 @@ class TalkbackSwitch(SwitchEntity):
     def _handle_invalid_audio_chunk(self, audio_data: bytes, error: Exception) -> None:
         """Track and log invalid/incomplete audio chunks that cannot be decoded."""
         _LOGGER.warning(
-            "Failed to process audio chunk for %s - size: %d bytes, error: %s. "
-            "This chunk will be skipped. Possible causes: incomplete transmission, codec issues, or invalid audio format.",
+            "Failed to process audio chunk for %s - size: %d bytes,"
+            " error: %s. "
+            "This chunk will be skipped. Possible causes: incomplete"
+            " transmission, codec issues, or invalid audio format.",
             self._camera_entity_id,
             len(audio_data),
             str(error),
