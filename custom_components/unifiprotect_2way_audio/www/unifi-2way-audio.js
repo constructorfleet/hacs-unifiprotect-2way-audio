@@ -430,6 +430,14 @@ class Unifi2WayAudio extends HTMLElement {
       this._statusText.textContent = 'Error toggling talkback';
       // Clean up audio capture if error occurs
       await this.stopAudioCapture();
+      // Ensure switch is not left active without an audio source
+      try {
+        await this._hass.callService('switch', 'turn_off', {
+          entity_id: switchEntityId,
+        });
+      } catch (stopError) {
+        console.error('[UniFi 2-Way Audio] Failed to turn off switch after error:', stopError);
+      }
     }
   }
 
@@ -509,12 +517,13 @@ class Unifi2WayAudio extends HTMLElement {
 
   async sendAudioChunk(audioBlob) {
     const switchEntityId = this.getSwitchEntityId();
+    let base64Audio = '';
     
     try {
       // Convert Blob to base64
       const arrayBuffer = await audioBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      const base64Audio = btoa(String.fromCharCode.apply(null, uint8Array));
+      base64Audio = btoa(String.fromCharCode.apply(null, uint8Array));
       
       // Send audio chunk via websocket (compatible with assist pipeline)
       await this._hass.connection.sendMessagePromise({
@@ -530,7 +539,7 @@ class Unifi2WayAudio extends HTMLElement {
       
       // Fallback to service call if websocket fails
       try {
-        await this._hass.callService('unifiprotect_2way_audio', 'send_audio', {
+        await this._hass.callService('switch', 'send_audio', {
           entity_id: switchEntityId,
           audio_data: base64Audio,
         });
