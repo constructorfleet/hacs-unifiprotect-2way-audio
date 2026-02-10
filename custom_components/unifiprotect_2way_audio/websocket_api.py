@@ -28,6 +28,8 @@ def async_register_websocket_handlers(hass: HomeAssistant) -> None:
         vol.Required("type"): "unifiprotect_2way_audio/stream_audio",
         vol.Required("entity_id"): str,
         vol.Required("audio_data"): str,
+        vol.Optional("audio_format"): vol.In(["webm", "ogg", "pcm_s16le"]),
+        vol.Optional("sample_rate"): int,
     }
 )
 @websocket_api.async_response
@@ -43,6 +45,8 @@ async def handle_stream_audio(
     """
     entity_id = msg["entity_id"]
     audio_data_b64 = msg["audio_data"]
+    audio_format = msg.get("audio_format")
+    sample_rate = msg.get("sample_rate")
 
     try:
         # Get the entity from the registry
@@ -99,7 +103,11 @@ async def handle_stream_audio(
         # Decode and send audio data
         try:
             audio_bytes = base64.b64decode(audio_data_b64)
-            await switch_entity.send_audio_data(audio_bytes)
+            await switch_entity.send_audio_data(
+                audio_bytes,
+                audio_format=audio_format,
+                sample_rate=sample_rate,
+            )
 
             _LOGGER.debug(
                 "Received audio via websocket for %s - size: %d bytes",
