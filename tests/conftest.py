@@ -2,11 +2,54 @@
 
 from __future__ import annotations
 
+import sys
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 pytest_plugins = "pytest_homeassistant_custom_component"
+
+
+@pytest.fixture(autouse=True)
+def mock_uiprotect_modules() -> None:
+    """Provide minimal uiprotect modules for unit tests."""
+    uiprotect_module = ModuleType("uiprotect")
+    data_module = ModuleType("uiprotect.data")
+    devices_module = ModuleType("uiprotect.data.devices")
+    stream_module = ModuleType("uiprotect.stream")
+
+    class Camera:  # noqa: D401
+        """Stub Camera type for imports."""
+
+    class TalkbackSession:  # noqa: D401
+        """Stub TalkbackSession type for imports."""
+
+    devices_module.Camera = Camera
+    stream_module.TalkbackSession = TalkbackSession
+    data_module.devices = devices_module
+    uiprotect_module.data = data_module
+    uiprotect_module.stream = stream_module
+
+    original_modules = {}
+    module_map = {
+        "uiprotect": uiprotect_module,
+        "uiprotect.data": data_module,
+        "uiprotect.data.devices": devices_module,
+        "uiprotect.stream": stream_module,
+    }
+    for module_name, module in module_map.items():
+        original_modules[module_name] = sys.modules.get(module_name)
+        sys.modules[module_name] = module
+
+    try:
+        yield
+    finally:
+        for module_name, original in original_modules.items():
+            if original is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = original
 
 
 @pytest.fixture(autouse=True)
