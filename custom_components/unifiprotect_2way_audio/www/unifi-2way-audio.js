@@ -216,6 +216,8 @@ class Unifi2WayAudio extends HTMLElement {
 
     const cameraEntityId = this.getCameraEntityId();
     if (!cameraEntityId) return;
+    const stateObj = this._hass.states[cameraEntityId];
+    if (!stateObj) return;
 
     // Guard FIRST, before touching the DOM
     if (cameraEntityId === this._lastCameraId && this._stream) {
@@ -224,14 +226,14 @@ class Unifi2WayAudio extends HTMLElement {
       if (container && !container.contains(this._stream)) {
         container.appendChild(this._stream);
       }
+      // Keep stream element in sync with latest HA state context
+      this._stream.hass = this._hass;
+      this._stream.stateObj = stateObj;
       return;
     }
 
     const container = this.shadowRoot.getElementById("camera-stream");
     if (!container) return;
-
-    const stateObj = this._hass.states[cameraEntityId];
-    if (!stateObj) return;
 
     await this._ensureStream(cameraEntityId);
 
