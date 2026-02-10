@@ -79,7 +79,7 @@ jobs:
               r"(?ms)^(\[project\]\s.*?^version\s*=\s*\")([0-9]+\.[0-9]+\.[0-9]+)(\".*?$)"
           )
           new_pyproject_text, count = pattern.subn(
-              rf"\1{next_version}\3", pyproject_text, count=1
+              rf"\g<1>{next_version}\g<3>", pyproject_text, count=1
           )
           if count != 1:
               raise RuntimeError("Could not update [project].version in pyproject.toml")
