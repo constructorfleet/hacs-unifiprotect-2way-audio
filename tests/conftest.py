@@ -19,10 +19,10 @@ def mock_uiprotect_modules() -> None:
     devices_module = ModuleType("uiprotect.data.devices")
     stream_module = ModuleType("uiprotect.stream")
 
-    class Camera:  # noqa: D401
+    class Camera:
         """Stub Camera type for imports."""
 
-    class TalkbackSession:  # noqa: D401
+    class TalkbackSession:
         """Stub TalkbackSession type for imports."""
 
     devices_module.Camera = Camera

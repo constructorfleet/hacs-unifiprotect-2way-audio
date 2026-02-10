@@ -646,74 +646,19 @@ class TalkbackSwitch(SwitchEntity):
             )
             # Continue processing instead of returning early
 
-        # MediaRecorder often emits one initialization segment and then cluster-only chunks.
-        # Cache the init segment from the first full chunk and prepend it to later chunks
-        # that do not include an EBML header.
-        candidate_chunks: list[bytes] = [audio_data]
-        if not audio_data.startswith(WEBM_EBML_HEADER) and self._webm_init_segment:
-            candidate_chunks.insert(0, self._webm_init_segment + audio_data)
-
-        if audio_data.startswith(WEBM_EBML_HEADER):
-            cluster_pos = audio_data.find(WEBM_CLUSTER_ID)
-            if cluster_pos > 0:
-                self._webm_init_segment = audio_data[:cluster_pos]
+        candidate_chunks = self._prepare_candidate_chunks(audio_data)
 
         last_error: Exception | None = None
 
         for idx, chunk in enumerate(candidate_chunks):
             try:
-                # Decode incoming audio (WebM/Opus from browser)
-                input_container = av.open(io.BytesIO(chunk), mode="r", format="webm")
-
-                for packet in input_container.demux():
-                    for frame in packet.decode():
-                        if not isinstance(frame, av.AudioFrame):
-                            continue
-
-                        # Resample if needed
-                        if frame.sample_rate != target_sample_rate:
-                            # Create resampler
-                            resampler = av.AudioResampler(
-                                format=output_stream.codec_context.format,
-                                layout=output_stream.codec_context.layout,
-                                rate=target_sample_rate,
-                            )
-                            frame = resampler.resample(frame)[0]
-
-                        # Encode and send to output stream
-                        for output_packet in output_stream.encode(frame):
-                            output_container.mux(output_packet)
-
-                input_container.close()
-
-                # Update statistics
-                data_size = len(audio_data)
-                self._audio_bytes_sent += data_size
-                self._audio_packets_sent += 1
-                self._last_transmission_time = dt_util.utcnow().isoformat()
-
-                _LOGGER.debug(
-                    "Streamed audio chunk to %s - size: %d bytes, "
-                    "total_packets: %d, total_bytes: %d",
-                    self._camera_entity_id,
-                    data_size,
-                    self._audio_packets_sent,
-                    self._audio_bytes_sent,
+                self._decode_and_stream_chunk(
+                    chunk=chunk,
+                    output_container=output_container,
+                    output_stream=output_stream,
+                    target_sample_rate=target_sample_rate,
                 )
-
-                # Log periodic statistics (every 100 packets)
-                if self._audio_packets_sent % 100 == 0:
-                    _LOGGER.info(
-                        "Audio transmission stats for %s - "
-                        "packets: %d, bytes: %d KB, errors: %d",
-                        self._camera_entity_id,
-                        self._audio_packets_sent,
-                        self._audio_bytes_sent // 1024,
-                        self._transmission_errors,
-                    )
-
-                # Update entity state
-                self.async_write_ha_state()
+                self._record_successful_chunk(len(audio_data))
                 return
 
             except (av.error.InvalidDataError, av.error.EOFError) as err:
@@ -736,17 +681,89 @@ class TalkbackSwitch(SwitchEntity):
                 raise
 
         if last_error is not None:
-            # Log invalid/incomplete audio data as warnings since they prevent transmission
-            # These errors may indicate issues with audio encoding, network transmission, or browser settings
-            _LOGGER.warning(
-                "Failed to process audio chunk for %s - size: %d bytes, error: %s. "
-                "This chunk will be skipped. Possible causes: incomplete transmission, codec issues, or invalid audio format.",
+            self._handle_invalid_audio_chunk(audio_data, last_error)
+
+    def _prepare_candidate_chunks(self, audio_data: bytes) -> list[bytes]:
+        """Build decode candidates and cache WebM init segment when available."""
+        # MediaRecorder often emits one initialization segment and then cluster-only
+        # chunks. Cache the init segment and prepend it for cluster-only payloads.
+        candidate_chunks: list[bytes] = [audio_data]
+        if not audio_data.startswith(WEBM_EBML_HEADER) and self._webm_init_segment:
+            candidate_chunks.insert(0, self._webm_init_segment + audio_data)
+
+        if audio_data.startswith(WEBM_EBML_HEADER):
+            cluster_pos = audio_data.find(WEBM_CLUSTER_ID)
+            if cluster_pos > 0:
+                self._webm_init_segment = audio_data[:cluster_pos]
+
+        return candidate_chunks
+
+    def _decode_and_stream_chunk(
+        self,
+        chunk: bytes,
+        output_container: av.container.OutputContainer,
+        output_stream: av.audio.stream.AudioStream,
+        target_sample_rate: int,
+    ) -> None:
+        """Decode one WebM chunk and mux it to the RTP output stream."""
+        input_container = av.open(io.BytesIO(chunk), mode="r", format="webm")
+        try:
+            for packet in input_container.demux():
+                for frame in packet.decode():
+                    if not isinstance(frame, av.AudioFrame):
+                        continue
+
+                    if frame.sample_rate != target_sample_rate:
+                        resampler = av.AudioResampler(
+                            format=output_stream.codec_context.format,
+                            layout=output_stream.codec_context.layout,
+                            rate=target_sample_rate,
+                        )
+                        frame = resampler.resample(frame)[0]
+
+                    for output_packet in output_stream.encode(frame):
+                        output_container.mux(output_packet)
+        finally:
+            input_container.close()
+
+    def _record_successful_chunk(self, data_size: int) -> None:
+        """Update per-session metrics after a successful transmit."""
+        self._audio_bytes_sent += data_size
+        self._audio_packets_sent += 1
+        self._last_transmission_time = dt_util.utcnow().isoformat()
+
+        _LOGGER.debug(
+            "Streamed audio chunk to %s - size: %d bytes, "
+            "total_packets: %d, total_bytes: %d",
+            self._camera_entity_id,
+            data_size,
+            self._audio_packets_sent,
+            self._audio_bytes_sent,
+        )
+
+        if self._audio_packets_sent % 100 == 0:
+            _LOGGER.info(
+                "Audio transmission stats for %s - "
+                "packets: %d, bytes: %d KB, errors: %d",
                 self._camera_entity_id,
-                len(audio_data),
-                str(last_error),
+                self._audio_packets_sent,
+                self._audio_bytes_sent // 1024,
+                self._transmission_errors,
             )
-            self._transmission_errors += 1
-            return
+
+        self.async_write_ha_state()
+
+    def _handle_invalid_audio_chunk(self, audio_data: bytes, error: Exception) -> None:
+        """Track and log invalid/incomplete audio chunks that cannot be decoded."""
+        _LOGGER.warning(
+            "Failed to process audio chunk for %s - size: %d bytes, error: %s. "
+            "This chunk will be skipped. Possible causes: incomplete transmission, codec issues, or invalid audio format.",
+            self._camera_entity_id,
+            len(audio_data),
+            str(error),
+        )
+        self._transmission_errors += 1
+        return
 
     async def send_audio_data(self, audio_data: bytes) -> None:
         """Send audio data to the camera.
