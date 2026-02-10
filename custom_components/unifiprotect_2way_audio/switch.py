@@ -41,6 +41,8 @@ STATE_ERROR = "error"
 MIN_WEBM_SIZE = 50  # Minimum bytes for valid WebM container with EBML header
 WEBM_EBML_HEADER = b"\x1a\x45\xdf\xa3"
 WEBM_CLUSTER_ID = b"\x1f\x43\xb6\x75"
+OGG_CAPTURE_PATTERN = b"OggS"
+PCM_FORMAT = "pcm_s16le"
 
 
 async def async_setup_entry(
@@ -66,8 +68,14 @@ async def async_setup_entry(
 
         async def handle_send_audio(call: ServiceCall) -> None:
             """Handle send_audio service call."""
-            entity_ids = call.data.get("entity_id", [])
+            entity_ids_data = call.data.get("entity_id", [])
+            if isinstance(entity_ids_data, str):
+                entity_ids = [entity_ids_data]
+            else:
+                entity_ids = entity_ids_data
             audio_data_b64 = call.data.get("audio_data", "")
+            audio_format = call.data.get("audio_format")
+            sample_rate = call.data.get("sample_rate")
 
             if not audio_data_b64:
                 _LOGGER.warning("No audio data provided to send_audio service")
@@ -79,7 +87,11 @@ async def async_setup_entry(
                     try:
                         # Decode base64 audio data
                         audio_bytes = base64.b64decode(audio_data_b64)
-                        await entity.send_audio_data(audio_bytes)
+                        await entity.send_audio_data(
+                            audio_bytes,
+                            audio_format=audio_format,
+                            sample_rate=sample_rate,
+                        )
                     except Exception as err:
                         _LOGGER.error(
                             "Failed to send audio to %s: %s",
@@ -91,6 +103,8 @@ async def async_setup_entry(
             "send_audio",
             {
                 "audio_data": str,
+                "audio_format": str,
+                "sample_rate": int,
             },
             handle_send_audio,
         )
@@ -148,6 +162,7 @@ class TalkbackSwitch(SwitchEntity):
         self._last_transmission_time = None
         self._session_start_time = None
         self._webm_init_segment: bytes | None = None
+        self._input_audio_format: str | None = None
 
     @property
     def is_on(self) -> bool:
@@ -213,6 +228,7 @@ class TalkbackSwitch(SwitchEntity):
             self._last_transmission_time = None
             self._session_start_time = dt_util.utcnow()
             self._webm_init_segment = None
+            self._input_audio_format = None
 
             self.async_write_ha_state()
 
@@ -558,15 +574,17 @@ class TalkbackSwitch(SwitchEntity):
             while True:
                 try:
                     # Wait for audio data with timeout
-                    audio_data = await asyncio.wait_for(
+                    queue_item = await asyncio.wait_for(
                         self._audio_queue.get(),
                         timeout=5.0,
                     )
 
-                    if audio_data is None:
+                    if queue_item is None:
                         # Sentinel value to stop streaming
                         _LOGGER.debug("Received stop signal in audio queue")
                         break
+
+                    audio_data, audio_format, input_sample_rate = queue_item
 
                     # Process and stream the audio chunk
                     await self._process_and_stream_audio(
@@ -574,6 +592,8 @@ class TalkbackSwitch(SwitchEntity):
                         output_container,
                         output_stream,
                         sample_rate,
+                        audio_format=audio_format,
+                        input_sample_rate=input_sample_rate,
                     )
 
                 except TimeoutError:
@@ -629,6 +649,8 @@ class TalkbackSwitch(SwitchEntity):
         output_container: av.container.OutputContainer,
         output_stream: av.audio.stream.AudioStream,
         target_sample_rate: int,
+        audio_format: str | None = None,
+        input_sample_rate: int | None = None,
     ) -> None:
         """Process incoming audio data and stream to camera.
 
@@ -646,10 +668,19 @@ class TalkbackSwitch(SwitchEntity):
             )
             return
 
-        # WebM container requires minimum size for valid header
-        # Warn about undersized chunks but still attempt to process them
-        # Some browsers may send smaller chunks that are still valid
-        if len(audio_data) < MIN_WEBM_SIZE:
+        chunk_format = audio_format or self._detect_audio_format(audio_data)
+        if chunk_format and chunk_format != self._input_audio_format:
+            self._input_audio_format = chunk_format
+            _LOGGER.info(
+                "Detected input audio container for %s: %s",
+                self._camera_entity_id,
+                chunk_format,
+            )
+
+        # WebM-specific minimum-size warning.
+        if (self._input_audio_format in (None, "webm")) and len(
+            audio_data
+        ) < MIN_WEBM_SIZE:
             _LOGGER.warning(
                 "Attempting to process undersized audio chunk for %s - size:"
                 " %d bytes (expected minimum: %d)",
@@ -657,7 +688,6 @@ class TalkbackSwitch(SwitchEntity):
                 len(audio_data),
                 MIN_WEBM_SIZE,
             )
-            # Continue processing instead of returning early
 
         candidate_chunks = self._prepare_candidate_chunks(audio_data)
 
@@ -665,6 +695,17 @@ class TalkbackSwitch(SwitchEntity):
 
         for idx, chunk in enumerate(candidate_chunks):
             try:
+                if self._input_audio_format == PCM_FORMAT:
+                    self._process_pcm_and_stream_audio(
+                        audio_data=chunk,
+                        output_container=output_container,
+                        output_stream=output_stream,
+                        target_sample_rate=target_sample_rate,
+                        input_sample_rate=input_sample_rate,
+                    )
+                    self._record_successful_chunk(len(audio_data))
+                    return
+
                 self._decode_and_stream_chunk(
                     chunk=chunk,
                     output_container=output_container,
@@ -699,6 +740,9 @@ class TalkbackSwitch(SwitchEntity):
 
     def _prepare_candidate_chunks(self, audio_data: bytes) -> list[bytes]:
         """Build decode candidates and cache WebM init segment when available."""
+        if self._input_audio_format in ("ogg", PCM_FORMAT):
+            return [audio_data]
+
         # MediaRecorder often emits one initialization segment and then cluster-only
         # chunks. Cache the init segment and prepend it for cluster-only payloads.
         candidate_chunks: list[bytes] = [audio_data]
@@ -712,6 +756,48 @@ class TalkbackSwitch(SwitchEntity):
 
         return candidate_chunks
 
+    def _detect_audio_format(self, chunk: bytes) -> str | None:
+        """Detect input container from magic bytes."""
+        if chunk.startswith(WEBM_EBML_HEADER):
+            return "webm"
+        if chunk.startswith(OGG_CAPTURE_PATTERN):
+            return "ogg"
+        return None
+
+    def _process_pcm_and_stream_audio(
+        self,
+        audio_data: bytes,
+        output_container: av.container.OutputContainer,
+        output_stream: av.audio.stream.AudioStream,
+        target_sample_rate: int,
+        input_sample_rate: int | None,
+    ) -> None:
+        """Convert PCM S16LE mono samples into AudioFrames and stream."""
+        if len(audio_data) < 2:
+            raise av.error.InvalidDataError(-1, "PCM chunk too small")
+
+        # Ensure 16-bit sample alignment.
+        valid_size = len(audio_data) - (len(audio_data) % 2)
+        pcm_data = audio_data[:valid_size]
+        num_samples = len(pcm_data) // 2
+        if num_samples == 0:
+            raise av.error.InvalidDataError(-1, "PCM chunk has no complete samples")
+
+        frame = av.AudioFrame(format="s16", layout="mono", samples=num_samples)
+        frame.sample_rate = input_sample_rate or target_sample_rate
+        frame.planes[0].update(pcm_data)
+
+        if frame.sample_rate != target_sample_rate:
+            resampler = av.AudioResampler(
+                format=output_stream.codec_context.format,
+                layout=output_stream.codec_context.layout,
+                rate=target_sample_rate,
+            )
+            frame = resampler.resample(frame)[0]
+
+        for output_packet in output_stream.encode(frame):
+            output_container.mux(output_packet)
+
     def _decode_and_stream_chunk(
         self,
         chunk: bytes,
@@ -719,8 +805,13 @@ class TalkbackSwitch(SwitchEntity):
         output_stream: av.audio.stream.AudioStream,
         target_sample_rate: int,
     ) -> None:
-        """Decode one WebM chunk and mux it to the RTP output stream."""
-        input_container = av.open(io.BytesIO(chunk), mode="r", format="webm")
+        """Decode one chunk and mux it to the RTP output stream."""
+        input_format = self._detect_audio_format(chunk) or self._input_audio_format
+        open_kwargs: dict[str, Any] = {"mode": "r"}
+        if input_format in ("webm", "ogg"):
+            open_kwargs["format"] = input_format
+
+        input_container = av.open(io.BytesIO(chunk), **open_kwargs)
         try:
             for packet in input_container.demux():
                 for frame in packet.decode():
@@ -769,19 +860,26 @@ class TalkbackSwitch(SwitchEntity):
 
     def _handle_invalid_audio_chunk(self, audio_data: bytes, error: Exception) -> None:
         """Track and log invalid/incomplete audio chunks that cannot be decoded."""
+        prefix_hex = audio_data[:8].hex()
         _LOGGER.warning(
             "Failed to process audio chunk for %s - size: %d bytes,"
-            " error: %s. "
+            " prefix: %s, error: %s. "
             "This chunk will be skipped. Possible causes: incomplete"
             " transmission, codec issues, or invalid audio format.",
             self._camera_entity_id,
             len(audio_data),
+            prefix_hex,
             str(error),
         )
         self._transmission_errors += 1
         return
 
-    async def send_audio_data(self, audio_data: bytes) -> None:
+    async def send_audio_data(
+        self,
+        audio_data: bytes,
+        audio_format: str | None = None,
+        sample_rate: int | None = None,
+    ) -> None:
         """Send audio data to the camera.
 
         This method would be called by a service or the frontend to send
@@ -800,7 +898,7 @@ class TalkbackSwitch(SwitchEntity):
 
         try:
             # Queue audio data for the streaming task to process
-            await self._audio_queue.put(audio_data)
+            await self._audio_queue.put((audio_data, audio_format, sample_rate))
 
             _LOGGER.debug(
                 "Queued audio chunk for %s - size: %d bytes, queue_size: %d",

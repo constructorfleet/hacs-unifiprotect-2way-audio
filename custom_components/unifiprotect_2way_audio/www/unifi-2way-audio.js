@@ -19,8 +19,10 @@ class Unifi2WayAudio extends HTMLElement {
     
     // Audio capture for talkback
     this._mediaStream = null;
-    this._mediaRecorder = null;
-    this._audioChunks = [];
+    this._audioContext = null;
+    this._audioSourceNode = null;
+    this._audioWorkletNode = null;
+    this._audioSampleRate = null;
   }
 
   setConfig(config) {
@@ -451,41 +453,38 @@ class Unifi2WayAudio extends HTMLElement {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 24000,  // Match camera sample rate
         }
       });
       
       console.log('[UniFi 2-Way Audio] Microphone access granted');
-      
-      // Set up MediaRecorder with Opus codec in WebM container
-      const mimeType = 'audio/webm;codecs=opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        throw new Error(`MIME type ${mimeType} not supported`);
+
+      // Match Home Assistant Assist approach: capture PCM via AudioWorklet.
+      // This avoids MediaRecorder container header/chunking issues.
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextCtor) {
+        throw new Error('AudioContext is not available in this browser');
       }
-      
-      this._mediaRecorder = new MediaRecorder(this._mediaStream, {
-        mimeType: mimeType,
-        audioBitsPerSecond: 24000,  // 24 kbps to match camera
-      });
-      
-      // Handle audio data chunks
-      this._mediaRecorder.ondataavailable = async (event) => {
-        if (event.data && event.data.size > 0) {
-          console.log(`[UniFi 2-Way Audio] Audio chunk captured: ${event.data.size} bytes`);
-          await this.sendAudioChunk(event.data);
+
+      this._audioContext = new AudioContextCtor();
+      this._audioSampleRate = this._audioContext.sampleRate;
+      await this._ensureRecorderWorklet(this._audioContext);
+
+      this._audioSourceNode = this._audioContext.createMediaStreamSource(this._mediaStream);
+      this._audioWorkletNode = new AudioWorkletNode(this._audioContext, 'up2wa-recorder-worklet');
+      this._audioWorkletNode.port.onmessage = (event) => {
+        if (!event.data || !event.data.buffer) {
+          return;
+        }
+        const pcmChunk = new Int16Array(event.data.buffer);
+        if (pcmChunk.length > 0) {
+          void this.sendAudioChunk(pcmChunk, this._audioSampleRate);
         }
       };
-      
-      this._mediaRecorder.onerror = (event) => {
-        console.error('[UniFi 2-Way Audio] MediaRecorder error:', event.error);
-      };
-      
-      // Start recording - send chunks every 500ms for real-time streaming
-      // Increased from 100ms to ensure chunks are large enough to contain
-      // valid WebM container headers (minimum ~50 bytes for EBML header)
-      this._mediaRecorder.start(500);
-      
-      console.log('[UniFi 2-Way Audio] Audio capture started - streaming to camera');
+
+      this._audioSourceNode.connect(this._audioWorkletNode);
+      await this._audioContext.resume();
+
+      console.log(`[UniFi 2-Way Audio] PCM audio capture started (sampleRate=${this._audioSampleRate})`);
       
     } catch (error) {
       console.error('[UniFi 2-Way Audio] Failed to start audio capture:', error);
@@ -496,12 +495,21 @@ class Unifi2WayAudio extends HTMLElement {
 
   async stopAudioCapture() {
     console.log('[UniFi 2-Way Audio] Stopping audio capture...');
-    
-    // Stop media recorder
-    if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
-      this._mediaRecorder.stop();
-      this._mediaRecorder = null;
+
+    if (this._audioWorkletNode) {
+      this._audioWorkletNode.port.onmessage = null;
+      this._audioWorkletNode.disconnect();
+      this._audioWorkletNode = null;
     }
+    if (this._audioSourceNode) {
+      this._audioSourceNode.disconnect();
+      this._audioSourceNode = null;
+    }
+    if (this._audioContext) {
+      await this._audioContext.close();
+      this._audioContext = null;
+    }
+    this._audioSampleRate = null;
     
     // Stop all tracks in the media stream
     if (this._mediaStream) {
@@ -515,24 +523,29 @@ class Unifi2WayAudio extends HTMLElement {
     console.log('[UniFi 2-Way Audio] Audio capture stopped');
   }
 
-  async sendAudioChunk(audioBlob) {
+  async sendAudioChunk(audioChunk, sampleRate) {
     const switchEntityId = this.getSwitchEntityId();
-    let base64Audio = '';
+    let base64Audio = "";
     
     try {
-      // Convert Blob to base64
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      base64Audio = btoa(String.fromCharCode.apply(null, uint8Array));
+      // Convert PCM Int16 chunk to base64.
+      const uint8Array = new Uint8Array(
+        audioChunk.buffer,
+        audioChunk.byteOffset,
+        audioChunk.byteLength
+      );
+      base64Audio = this._uint8ToBase64(uint8Array);
       
       // Send audio chunk via websocket (compatible with assist pipeline)
       await this._hass.connection.sendMessagePromise({
         type: 'unifiprotect_2way_audio/stream_audio',
         entity_id: switchEntityId,
         audio_data: base64Audio,
+        audio_format: 'pcm_s16le',
+        sample_rate: sampleRate,
       });
       
-      console.log(`[UniFi 2-Way Audio] Audio chunk sent via websocket: ${audioBlob.size} bytes`);
+      console.log(`[UniFi 2-Way Audio] PCM chunk sent via websocket: ${audioChunk.byteLength} bytes`);
       
     } catch (error) {
       console.error('[UniFi 2-Way Audio] Failed to send audio chunk:', error);
@@ -542,12 +555,70 @@ class Unifi2WayAudio extends HTMLElement {
         await this._hass.callService('switch', 'send_audio', {
           entity_id: switchEntityId,
           audio_data: base64Audio,
+          audio_format: 'pcm_s16le',
+          sample_rate: sampleRate,
         });
         console.log('[UniFi 2-Way Audio] Audio sent via service fallback');
       } catch (fallbackError) {
         console.error('[UniFi 2-Way Audio] Service fallback also failed:', fallbackError);
       }
     }
+  }
+
+  async _ensureRecorderWorklet(audioContext) {
+    const processorSource = `
+      class UP2WARecorderWorklet extends AudioWorkletProcessor {
+        constructor() {
+          super();
+          this._buffer = [];
+          this._chunkSize = 2048;
+        }
+
+        process(inputs) {
+          const input = inputs[0];
+          if (!input || !input[0]) {
+            return true;
+          }
+
+          const channelData = input[0];
+          for (let i = 0; i < channelData.length; i++) {
+            const sample = Math.max(-1, Math.min(1, channelData[i]));
+            this._buffer.push(sample < 0 ? sample * 0x8000 : sample * 0x7fff);
+          }
+
+          while (this._buffer.length >= this._chunkSize) {
+            const chunk = this._buffer.splice(0, this._chunkSize);
+            const int16 = new Int16Array(chunk.length);
+            for (let i = 0; i < chunk.length; i++) {
+              int16[i] = chunk[i];
+            }
+            this.port.postMessage({ buffer: int16.buffer }, [int16.buffer]);
+          }
+
+          return true;
+        }
+      }
+
+      registerProcessor('up2wa-recorder-worklet', UP2WARecorderWorklet);
+    `;
+
+    const blob = new Blob([processorSource], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    try {
+      await audioContext.audioWorklet.addModule(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  _uint8ToBase64(bytes) {
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const subarray = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...subarray);
+    }
+    return btoa(binary);
   }
 
   static getConfigElement() {
