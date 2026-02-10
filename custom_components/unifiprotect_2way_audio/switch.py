@@ -552,6 +552,7 @@ class TalkbackSwitch(SwitchEntity):
                 "RTP stream opened to %s - streaming audio to camera",
                 rtp_url,
             )
+            no_audio_warning_logged = False
 
             # Process audio chunks from queue and stream to camera
             while True:
@@ -577,6 +578,13 @@ class TalkbackSwitch(SwitchEntity):
 
                 except TimeoutError:
                     # No audio data received, send silence to keep stream alive
+                    if not no_audio_warning_logged and self._audio_packets_sent == 0:
+                        no_audio_warning_logged = True
+                        _LOGGER.warning(
+                            "No audio chunks received from frontend for %s after backchannel start. "
+                            "Talkback is active but no microphone data is being transmitted.",
+                            self._camera_entity_id,
+                        )
                     _LOGGER.debug("No audio data for 5s, sending keepalive")
                     continue
                 except Exception as err:

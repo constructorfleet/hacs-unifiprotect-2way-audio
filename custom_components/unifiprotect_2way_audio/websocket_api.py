@@ -49,11 +49,11 @@ async def handle_stream_audio(
         entity_reg = er.async_get(hass)
         entry = entity_reg.async_get(entity_id)
 
-        if not entry or entry.platform != DOMAIN:
+        if not entry:
             connection.send_error(
                 msg["id"],
                 "entity_not_found",
-                f"Entity {entity_id} not found or not a {DOMAIN} entity",
+                f"Entity {entity_id} not found",
             )
             return
 
