@@ -27,7 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install "pycares==4.3.0"
+          pip install "pycares<5"
 
       - name: Validate Python syntax
         run: |
