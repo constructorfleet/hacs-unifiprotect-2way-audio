@@ -11,4 +11,4 @@ ruff==0.15.0
 mypy==1.19.1
 pycares<5.0.0
 aiodns==3.6.1
-homeassistant==2024.12.5
+homeassistant==2026.2.1
